@@ -1,0 +1,60 @@
+[Event "Self-Play"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "A"]
+[Black "B"]
+[Result "0-1"]
+[TimeControl "600+0"]
+[Termination "checkmate"]
+
+1. d4 Nf6 2. Qd3 Nc6 3. Qf5 Nxd4 4. Qc5 Nc6 5. Bf4 Ng4 6. Qc4 b6 7. e4 Na5 8. Qd5 c6 9. Qf5 d6 10. Bb5 Bxf5 11. Nc3 Nxh2 12. Nd5 Bxe4 13. Rxh2 Bxd5 14. Rd1 e6 15. Rh6 gxh6 16. Nf3 cxb5 17. Ke2 Qf6 18. Rd4 Bxf3+ 19. Ke3 Bxg2 20. f3 Bh3 21. Re4 d5 22. Rd4 Bc5 23. c3 Nc4+ 24. Kd3 Nxb2+ 25. Kc2 Bxd4 26. Bd6 Bxc3 27. a4 bxa4 28. Kb1 Bg2 29. Ka2 Bxf3 30. Ka3 Nc4+ 31. Kxa4 Bd1+ 32. Kb5 a6+ 33. Kc6 Ra7 34. Bc7 Ba4# 0-1
+
+[Event "Self-Play"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "B"]
+[Black "A"]
+[Result "0-1"]
+[TimeControl "600+0"]
+[Termination "time forfeit by White"]
+
+1. d4 e6 2. f4 Qh4+ 3. g3 Bb4+ 4. c3 Bxc3+ 5. Nxc3 Qg4 6. Qb3 Ne7 7. Nf3 Nd5 8. Ne5 Nxf4 9. Nxg4 Ng6 10. e4 Nc6 11. Qa4 f5 12. exf5 exf5 13. Nf2 b5 14. Bxb5 Bb7 15. Be3 Ke7 16. Nd5+ Ke6 17. Nxc7+ Kd6 18. Nxa8 Re8 19. Qa3+ Ke6 20. Nc7+ Kf7 21. Bc4+ d5 22. Bxd5+ Re6 23. Nxe6 Nxd4 24. Ng5+ Ke8 25. Qa4+ Ke7 26. Bxb7 Nf4 27. Bxf4 Ne6 28. Qb4+ Kd7 29. Qd6+ Ke8 0-1
+
+[Event "Self-Play"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "A"]
+[Black "B"]
+[Result "0-1"]
+[TimeControl "600+0"]
+[Termination "checkmate"]
+
+1. d4 d6 2. e4 a6 3. Qh5 Nf6 4. Bb5+ c6 5. Nc3 Nxh5 6. Bc4 Qa5 7. b4 Qxb4 8. Ne2 Qxc4 9. Ba3 a5 10. Kd2 h6 11. Ke3 e5 12. Rab1 exd4+ 13. Kf3 dxc3 14. Ke3 Qxa2 15. Rhd1 Qxc2 16. Bc5 dxc5 17. Rd8+ Kxd8 18. Nf4 Nxf4 19. Ra1 g5 20. Rd1+ Qxd1 21. g4 Qe2# 0-1
+
+[Event "Self-Play"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "B"]
+[Black "A"]
+[Result "1-0"]
+[TimeControl "600+0"]
+[Termination "checkmate"]
+
+1. Na3 d5 2. Nb5 e5 3. e3 Bf5 4. Be2 Nc6 5. g4 Qh4 6. Nxc7+ Kd7 7. Nxa8 Kd6 8. gxf5 Nf6 9. Bf3 Be7 10. Nc7 Kxc7 11. c3 Bc5 12. Rb1 Kd6 13. Qb3 Qxf2+ 14. Kxf2 e4 15. Bd1 Bxe3+ 16. Kxe3 d4+ 17. cxd4 b5 18. Qxf7 Re8 19. Be2 a6 20. Bd1 b4 21. Nh3 b3 22. axb3 a5 23. Rf1 a4 24. bxa4 Nd5+ 25. Kf2 Nf4 26. Nxf4 e3+ 27. dxe3 Nb4 28. Qxe8 Kc7 29. Qe7+ Kc8 30. Qc5+ Kd8 31. Qxb4 Kd7 32. Ne6 g6 33. Nc5+ Ke7 34. Nb7+ Kf7 35. Nd8+ Ke8 36. Qd6 h6 37. a5 gxf5 38. Bh5# 1-0
+
+[Event "Self-Play"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "A"]
+[Black "B"]
+[Result "0-1"]
+[TimeControl "600+0"]
+[Termination "checkmate"]
+
+1. d4 c6 2. Qd3 Qb6 3. Qf5 Qxd4 4. c4 Qxc4 5. Nc3 e6 6. e4 Qb4 7. Bc4 exf5 8. Bd3 fxe4 9. a3 Qb3 10. Nxe4 Qxd3 11. f3 Qc4 12. Be3 Qe6 13. Ne2 a6 14. N2c3 Qb3 15. O-O Qxb2 16. Ne2 Qxe2 17. Rf2 Qxe3 18. Rd1 Bxa3 19. Kh1 d5 20. Re2 Qxe2 21. Rc1 Bxc1 22. Nd6+ Kd7 23. h3 Kxd6 24. h4 Bf4 25. g3 Bh3 26. gxf4 Qg2# 0-1
+

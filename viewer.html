@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Chess Board</title>
+  <style>
+    html,body{height:100%;margin:0;background:#eee;}
+    #wrap{height:100%;display:flex;align-items:center;justify-content:center;}
+    /* Any SVG inserted will scale to fit */
+    #board svg{
+      width: min(92vmin, 900px);
+      height: auto;
+      max-height: 92vmin;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrap"><div id="board"></div></div>
+  <script>
+    async function tick(){
+      try{
+        const r = await fetch('board.svg?ts=' + Date.now(), {cache:'no-store'});
+        if (!r.ok) return;
+        const txt = await r.text();
+        const el = document.getElementById('board');
+        el.innerHTML = txt;
+
+        // Ensure scaling even if SVG has hard width/height
+        const svg = el.querySelector('svg');
+        if (svg){
+          svg.removeAttribute('width');
+          svg.removeAttribute('height');
+          svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+        }
+      }catch(e){}
+    }
+    tick();
+    setInterval(tick, 500);   // update twice per second
+  </script>
+</body>
+</html>
