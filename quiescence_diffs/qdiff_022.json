@@ -1,0 +1,14 @@
+{
+  "entry_fen": "rnb1kbnr/p1p2ppp/3p4/Pp2p3/8/6qP/1PPPPP1R/RNBQKBN1 w Qkq - 0 6",
+  "after_best_move_fen": "rnb1kbnr/p1p2ppp/3p4/Pp2p3/8/6PP/1PPPP2R/RNBQKBN1 b Qkq - 0 6",
+  "root_color": "black",
+  "side_to_move_at_entry": "white",
+  "maximizing_at_entry": false,
+  "in_check_at_entry": false,
+  "stand_pat": 1.0,
+  "qscore": -7.0,
+  "delta": 8.0,
+  "best_first_move_uci": "f2g3",
+  "captures_considered": 1,
+  "captures_searched": 1
+}
