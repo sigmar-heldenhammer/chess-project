@@ -23,6 +23,7 @@ def play_game(
     pgn_out: Optional[io.TextIOBase] = None,
     quiet: bool = False,
     on_update: Optional[Callable[[chess.Board, chess.Move, int], None]] = None,  # <—
+    on_root: Callable[[chess.Board, "Agent", "Agent"], None] | None = None
 ) -> dict:
     board = chess.Board()
     game = chess.pgn.Game()
@@ -49,9 +50,12 @@ def play_game(
         side = board.turn
         agent = agents[side]
         start = time.time()
-
+        
+        if on_root is not None:
+            on_root(board.copy(stack=False), white, black)
+            
         move = agent.select_move(
-            board.copy(stack=False),
+            board.copy(stack=True),
             time_left=time_left[side],
             increment=inc,
             move_number=board.fullmove_number,

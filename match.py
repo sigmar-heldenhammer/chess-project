@@ -9,9 +9,11 @@ Created on Mon Oct 27 13:14:34 2025
 # match.py
 import io
 import time
-from typing import Optional
+import chess
+from typing import Optional, Callable
 from arena import play_game
 from random_agent import RandomAgent
+from agents import Agent
 
 # --- Timing wrapper -----------------------------------------------------------
 class TimedAgent:
@@ -36,7 +38,8 @@ class TimedAgent:
         return getattr(self.inner, name)
 
 
-def play_match(a, b, games: int = 20, tc=(60, 0), pgn_path: str | None = "match.pgn"):
+def play_match(a, b, games: int = 20, tc=(60, 0), pgn_path: str | None = "match.pgn", 
+    divergence_probe: Callable[[chess.Board, "Agent", "Agent"], None] | None = None):
     score = 0.0  # positive = a leads; negative = b leads
     wdl = [0, 0, 0]  # [wins for a, draws, wins for b]
     pgn_out = open(pgn_path, "w", encoding="utf-8") if pgn_path else None
@@ -57,7 +60,8 @@ def play_match(a, b, games: int = 20, tc=(60, 0), pgn_path: str | None = "match.
             res = play_game(
                 white=white, black=black,
                 white_name=f"{wn}", black_name=f"{bn}",
-                time_control=tc, pgn_out=pgn_out, quiet=True
+                time_control=tc, pgn_out=pgn_out, quiet=True,
+                on_root = divergence_probe
             )
 
             r = res["result"]

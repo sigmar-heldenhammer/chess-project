@@ -1,14 +1,14 @@
 {
-  "entry_fen": "rnb1kbnr/pppp1ppp/8/4p3/P7/7P/1PPPPqPR/RNBQKBN1 w Qkq - 0 4",
-  "after_best_move_fen": "rnb1kbnr/pppp1ppp/8/4p3/P7/7P/1PPPPKPR/RNBQ1BN1 b kq - 0 4",
+  "entry_fen": "r1bqkb1r/pppppppN/2n4n/8/8/8/PPPPPPPP/RNBQKB1R b KQkq - 0 3",
+  "after_best_move_fen": "r1bqkb2/pppppppr/2n4n/8/8/8/PPPPPPPP/RNBQKB1R w KQq - 0 4",
   "root_color": "black",
-  "side_to_move_at_entry": "white",
-  "maximizing_at_entry": false,
-  "in_check_at_entry": true,
-  "stand_pat": 1.0,
-  "qscore": -8.0,
-  "delta": 9.0,
-  "best_first_move_uci": "e1f2",
+  "side_to_move_at_entry": "black",
+  "maximizing_at_entry": true,
+  "in_check_at_entry": false,
+  "stand_pat": -1.0,
+  "qscore": 2.0,
+  "delta": 3.0,
+  "best_first_move_uci": "h8h7",
   "captures_considered": 1,
   "captures_searched": 1
 }

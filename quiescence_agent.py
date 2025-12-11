@@ -62,47 +62,62 @@ class QuiescenceAgent(MinimaxAgent):
         maximizing: bool,
         alpha: float,
         beta: float,
-    ) -> float:
-        # Terminal node (checkmate/stalemate/50-move/etc.)
+    ):
+        """
+        PV-aware alpha-beta: returns (score, pv), where pv is a list of chess.Move.
+        Leaf returns (eval, []).
+        """
+ 
+        # Terminal (mate/draw/claim)
         if board.is_game_over(claim_draw=True):
-            return self._evaluate(board, root_color)
-
-        # Depth cutoff -> quiescence instead of plain eval
+            return self._evaluate(board, root_color), []
+    
+        # Depth cutoff: static evaluation (or overridden by subclasses)
         if depth == 0:
-            return self._quiescent_search(board, root_color, maximizing, alpha, beta)
-
+            return self._quiescent_search(board, root_color, maximizing, alpha, beta), []
+    
+    
         legal = list(board.legal_moves)
         if not legal:
-            # Should be covered by is_game_over, but safe:
-            return self._evaluate(board, root_color)
-
+            return self._evaluate(board, root_color), []
+    
         if self.order_moves:
             legal = self._ordered_moves(board, legal)
+    
 
+    
         if maximizing:
-            value = -math.inf
+            best_val = -math.inf
+            best_pv: list[chess.Move] = []
             for mv in legal:
                 board.push(mv)
-                child = self._search(board, depth - 1, root_color, False, alpha, beta)
+                child_val, child_pv = self._search(board, depth - 1, root_color, False, alpha, beta)
                 board.pop()
-                value = max(value, child)
+                if child_val > best_val:
+                    best_val = child_val
+                    best_pv = [mv] + child_pv
                 if self.use_alpha_beta:
-                    alpha = max(alpha, value)
+                    if best_val > alpha:
+                        alpha = best_val
                     if alpha >= beta:
                         break  # beta cutoff
-            return value
+            return best_val, best_pv
         else:
-            value = math.inf
+            best_val = math.inf
+            best_pv: list[chess.Move] = []
             for mv in legal:
                 board.push(mv)
-                child = self._search(board, depth - 1, root_color, True, alpha, beta)
+                child_val, child_pv = self._search(board, depth - 1, root_color, True, alpha, beta)
                 board.pop()
-                value = min(value, child)
+                if child_val < best_val:
+                    best_val = child_val
+                    best_pv = [mv] + child_pv
                 if self.use_alpha_beta:
-                    beta = min(beta, value)
+                    if best_val < beta:
+                        beta = best_val
                     if alpha >= beta:
                         break  # alpha cutoff
-            return value
+            return best_val, best_pv
 
     # ----------------- quiescence -----------------
 

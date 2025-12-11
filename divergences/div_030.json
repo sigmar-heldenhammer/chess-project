@@ -1,0 +1,37 @@
+{
+  "root_fen": "rnbq1kr1/ppppppp1/7p/4N3/4n2P/8/PPPPPPPR/1RBQKB2 w - - 5 28",
+  "side_to_move": "white",
+  "settings": {
+    "score_gap": 0.2,
+    "sample_rate": 0.25
+  },
+  "agent_a": {
+    "class": "TimedAgent",
+    "seed": null,
+    "depth": 3,
+    "alpha_beta": true,
+    "order_moves": true,
+    "move": "e5g4",
+    "score": 0.0,
+    "pv": [
+      "e5g4",
+      "g8h8",
+      "g4e5"
+    ]
+  },
+  "agent_b": {
+    "class": "TimedAgent",
+    "seed": null,
+    "depth": 3,
+    "alpha_beta": true,
+    "order_moves": true,
+    "move": "h2h3",
+    "score": 1.0,
+    "pv": [
+      "h2h3",
+      "g8h8",
+      "e5d7"
+    ]
+  },
+  "score_diff": 1.0
+}
