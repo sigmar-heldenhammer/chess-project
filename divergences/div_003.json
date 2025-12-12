@@ -1,5 +1,5 @@
 {
-  "root_fen": "1rbq1r2/ppp2k1p/2n1Np1Q/3p4/2B5/4PP2/Pb3KPP/RN5R b - - 1 30",
+  "root_fen": "r1b5/ppQp1k2/5p2/8/8/3P1P2/PP2P1BP/RN2K2R b - - 0 43",
   "side_to_move": "black",
   "settings": {
     "score_gap": 0.2,
@@ -11,13 +11,13 @@
     "depth": 4,
     "alpha_beta": true,
     "order_moves": true,
-    "move": "c8e6",
-    "score": 2.0,
+    "move": "f7g8",
+    "score": -22.0,
     "pv": [
-      "c8e6",
-      "h6h7",
-      "f7e8",
-      "c4d5"
+      "f7g8",
+      "c7d8",
+      "g8h7",
+      "d8c8"
     ]
   },
   "agent_b": {
@@ -27,13 +27,13 @@
     "alpha_beta": true,
     "order_moves": true,
     "move": "f7e6",
-    "score": 4.0,
+    "score": -19.0,
     "pv": [
       "f7e6",
-      "h6h3",
-      "e6d6",
-      "h3g3"
+      "c7c4",
+      "e6e7",
+      "c4c5"
     ]
   },
-  "score_diff": 2.0
+  "score_diff": 3.0
 }

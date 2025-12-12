@@ -57,6 +57,7 @@ def play_game(
         move = agent.select_move(
             board.copy(stack=True),
             time_left=time_left[side],
+            orig_time = base,
             increment=inc,
             move_number=board.fullmove_number,
             color=side,

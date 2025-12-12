@@ -99,8 +99,23 @@ class MinimaxAgent(Agent):
     
         return score
     
+    
+    def time_adjustment(self, orig_time, time_left, depth) -> int:
+        if orig_time is not None and time_left is not None:
+            if time_left >  0 and time_left < orig_time and orig_time > 0:
+                time_ratio = time_left / orig_time
+                new_depth = depth + math.ceil(math.log2(time_ratio))
+                print(f"time left: {time_left} ratio: {time_ratio} new_depth: {new_depth}")
+                return max(new_depth, 1)
+        return depth
+        
     # ---- public API expected by the arena ----
-    def select_move(self, board: chess.Board, *, color: chess.Color | None = None, **kwargs) -> chess.Move:
+    def select_move(self, board: chess.Board, *, color: chess.Color | None = None, 
+                    time_left: Optional[float] = None,   # seconds remaining
+                    orig_time: Optional[float] = None,   # total base time (e.g., 600.0)
+
+                    
+                    **kwargs) -> chess.Move:
         """
         Returns the chosen move (unchanged public API).
         Also records:
@@ -112,9 +127,12 @@ class MinimaxAgent(Agent):
         alpha = float("-inf")
         beta  = float("+inf")
         best_move = None
+        
+        
+        local_depth = self.time_adjustment(orig_time, time_left, self.depth)
     
         # PV-aware call
-        out = self._search(board, self.depth, root_color, maximizing=True, alpha=alpha, beta=beta)
+        out = self._search(board, local_depth, root_color, maximizing=True, alpha=alpha, beta=beta)
         #print(color, out[0], str(out[1][0]))
     
         # Backward compatibility: _search may return float or (float, pv)
