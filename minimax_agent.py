@@ -105,7 +105,7 @@ class MinimaxAgent(Agent):
             if time_left >  0 and time_left < orig_time and orig_time > 0:
                 time_ratio = time_left / orig_time
                 new_depth = depth + math.ceil(math.log2(time_ratio))
-                print(f"time left: {time_left} ratio: {time_ratio} new_depth: {new_depth}")
+                #print(f"time left: {time_left} ratio: {time_ratio} new_depth: {new_depth}")
                 return max(new_depth, 1)
         return depth
         

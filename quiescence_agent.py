@@ -145,29 +145,33 @@ class QuiescenceAgent(MinimaxAgent):
 
         # Stand-pat: what plain minimax would return at this leaf
         stand_pat = self._evaluate(board, root_color)
+        
+        if board.is_check():
+            active_moves = [m for m in board.legal_moves]
 
-        # Apply stand-pat bounds
-        if maximizing:
-            if self.use_alpha_beta and stand_pat >= beta:
-                qscore = stand_pat
-                self._maybe_log_qdiff(entry_fen, root_color, entry_turn, maximizing, in_check,
-                                      stand_pat, qscore, best_first_move=None, captures_considered=0, captures_searched=0)
-                return qscore
-            if stand_pat > alpha:
-                alpha = stand_pat
         else:
-            if self.use_alpha_beta and stand_pat <= alpha:
-                qscore = stand_pat
-                self._maybe_log_qdiff(entry_fen, root_color, entry_turn, maximizing, in_check,
-                                      stand_pat, qscore, best_first_move=None, captures_considered=0, captures_searched=0)
-                return qscore
-            if stand_pat < beta:
-                beta = stand_pat
+        # Apply stand-pat bounds
+            if maximizing:
+                if self.use_alpha_beta and stand_pat >= beta:
+                    qscore = stand_pat
+                    self._maybe_log_qdiff(entry_fen, root_color, entry_turn, maximizing, in_check,
+                                          stand_pat, qscore, best_first_move=None, captures_considered=0, captures_searched=0)
+                    return qscore
+                if stand_pat > alpha:
+                    alpha = stand_pat
+            else:
+                if self.use_alpha_beta and stand_pat <= alpha:
+                    qscore = stand_pat
+                    self._maybe_log_qdiff(entry_fen, root_color, entry_turn, maximizing, in_check,
+                                          stand_pat, qscore, best_first_move=None, captures_considered=0, captures_searched=0)
+                    return qscore
+                if stand_pat < beta:
+                    beta = stand_pat
+    
+            # Generate capture moves only
+            active_moves = [m for m in board.legal_moves if (board.is_capture(m) or m.promotion)]
 
-        # Generate capture moves only
-        captures = [m for m in board.legal_moves if board.is_capture(m)]
-
-        if not captures:
+        if not active_moves:
             qscore = stand_pat
             self._maybe_log_qdiff(entry_fen, root_color, entry_turn, maximizing, in_check,
                                   stand_pat, qscore, best_first_move=None, captures_considered=0, captures_searched=0)
@@ -182,14 +186,14 @@ class QuiescenceAgent(MinimaxAgent):
             promo = PIECE_VALUES.get(mv.promotion, 0.0) if mv.promotion else 0.0
             return 10.0 * v - 0.1 * a + promo
 
-        captures.sort(key=cap_score, reverse=True)
+        active_moves.sort(key=cap_score, reverse=True)
 
         best_first_move = None
         captures_searched = 0
 
         if maximizing:
             value = stand_pat
-            for mv in captures:
+            for mv in active_moves:
                 board.push(mv)
                 child = self._quiescent_search(board, root_color, False, alpha, beta)
                 board.pop()
@@ -205,7 +209,7 @@ class QuiescenceAgent(MinimaxAgent):
             qscore = value
         else:
             value = stand_pat
-            for mv in captures:
+            for mv in active_moves:
                 board.push(mv)
                 child = self._quiescent_search(board, root_color, True, alpha, beta)
                 board.pop()
@@ -224,7 +228,7 @@ class QuiescenceAgent(MinimaxAgent):
         self._maybe_log_qdiff(
             entry_fen, root_color, entry_turn, maximizing, in_check,
             stand_pat, qscore, best_first_move=best_first_move,
-            captures_considered=len(captures),
+            captures_considered=len(active_moves),
             captures_searched=captures_searched,
         )
         return qscore

@@ -1,6 +1,7 @@
 AgentID,AgentName,AgentInputs,Elo,Games
-1,MinimaxAgent,"depth=2, seed=2, use_alpha_beta=False",999.0853589153153,45
-2,GreedyMaterialAgent,seed=1,592.4657454743318,38
-3,RandomAgent,seed=12,476.60142831740694,38
-4,MinimaxAgent,"depth=2, seed=2, use_alpha_beta=False",866.5468876459702,31
-5,EvaluationAgent,"depth=2, seed=5, use_alpha_beta=False",935.1728887475767,20
+1,MinimaxAgent,"depth=2, seed=2, use_alpha_beta=False",944.155583003206,50
+2,GreedyMaterialAgent,seed=1,602.3966316187724,43
+3,RandomAgent,seed=12,451.5375204094241,43
+4,MinimaxAgent,"depth=2, seed=2, use_alpha_beta=False",884.0415841356195,36
+5,EvaluationAgent,"depth=2, seed=5, use_alpha_beta=False",898.717633380904,25
+6,MinimaxAgent,depth=3,889.023356552675,5
