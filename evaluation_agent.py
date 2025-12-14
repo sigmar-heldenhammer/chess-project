@@ -21,7 +21,7 @@ Criteria implemented:
 from __future__ import annotations
 
 import chess
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 # We extend the existing MinimaxAgent from minimax_agent.py
 from minimax_agent import MinimaxAgent, PIECE_VALUES, MATE_VALUE
@@ -47,11 +47,13 @@ class EvaluationAgent(MinimaxAgent):
         use_alpha_beta: bool = True,
         order_moves: bool = True,
         weights: Optional[Sequence[float]] = None,
+        ordering_depth: int = 1
     ) -> None:
         super().__init__(depth=depth, seed=seed, use_alpha_beta=use_alpha_beta, order_moves=order_moves)
         # Default equal weights for three criteria (material, center, activity)
         self.weights: List[float] = list(weights) if weights is not None else [1.0, 1.0, 1.0]
         self._center = tuple(_central_squares())
+        self.ordering_depth = max(ordering_depth, 0)
 
     # --------------- Criteria (each returns value in [-1, 1]) ---------------
 
@@ -156,6 +158,27 @@ class EvaluationAgent(MinimaxAgent):
         elif score < -1.0:
             score = -1.0
         return score
+    
+    def _ordered_moves(self, board: chess.Board, moves) -> list[chess.Move]:
+        rc = getattr(self, "_eval_root_color", board.turn)  # fallback: side to move
+        root_d = getattr(self, "_ordering_root_depth", 0)
+        now_d  = getattr(self, "_ordering_depth_now", 0)
+        ply_from_root = root_d - now_d
+
+        if ply_from_root < self.ordering_depth:
+            scored = []
+            for mv in moves:
+                board.push(mv)
+                try:
+                    # your richer eval from root POV drives ordering
+                    s = self._evaluate(board, rc)
+                finally:
+                    board.pop()
+                scored.append((s, mv))
+            scored.sort(key=lambda t: t[0], reverse=True)
+            return [mv for _, mv in scored]
+        else:
+            return super()._ordered_moves(board, moves)
 
 
 # Example usage (for reference):

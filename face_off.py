@@ -18,9 +18,9 @@ def divergence_probe(board, white, black):
     compare_agents_at_root(board, white, black, out_dir="divergences", sample_rate=0.25)
 
 #A = EvaluationAgent(depth=2, seed=3, use_alpha_beta=False, weights=[1.0, 0.1, 0.1])
-A = MinimaxAgent(depth=4)
-#B = QuiescenceAgent(depth=3)
-B = QuiescenceAgent(depth=4, use_alpha_beta=True, log_quiescence_diffs=False, log_limit=99, log_threshold=2.5)
+A = MinimaxAgent(depth=3)
+B = EvaluationAgent(depth=3, ordering_depth=1, weights=[1.0, 0.1, 0.1])
+#B = QuiescenceAgent(depth=4, use_alpha_beta=True, log_quiescence_diffs=False, log_limit=99, log_threshold=2.5)
 #play_match(A, B, games=1, tc=(600, 0), divergence_probe = divergence_probe)
-play_match(A, B, games=5, tc=(200, 0))
+play_match(A, B, games=1, tc=(200, 0))
 

@@ -46,6 +46,11 @@ try:
     from evaluation_agent import EvaluationAgent
 except Exception:
     EvaluationAgent = None  # type: ignore
+    
+try:
+    from quiescence_agent import QuiescenceAgent
+except Exception:
+    QuiescenceAgent = None  # type: ignore
 
 try:
     from arena import play_game  # expects signature from previous snippets
@@ -58,6 +63,7 @@ AGENT_REGISTRY: Dict[str, Any] = {
     "GreedyMaterialAgent": GreedyMaterialAgent,
     "MinimaxAgent": MinimaxAgent,
     "EvaluationAgent": EvaluationAgent,
+    "QuiescenceAgent": QuiescenceAgent
 }
 
 # ---- CSV constants ----

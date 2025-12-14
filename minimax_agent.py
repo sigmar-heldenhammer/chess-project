@@ -132,7 +132,16 @@ class MinimaxAgent(Agent):
         local_depth = self.time_adjustment(orig_time, time_left, self.depth)
     
         # PV-aware call
-        out = self._search(board, local_depth, root_color, maximizing=True, alpha=alpha, beta=beta)
+        prev_rc = getattr(self, "_eval_root_color", None)
+        self._eval_root_color = root_color
+        
+        try:
+            out = self._search(board, local_depth, root_color, maximizing=True, alpha=alpha, beta=beta)
+        finally:
+            if prev_rc is None:
+                delattr(self, "_eval_root_color")
+            else:
+                self._eval_root_color = prev_rc
         #print(color, out[0], str(out[1][0]))
     
         # Backward compatibility: _search may return float or (float, pv)
@@ -186,6 +195,11 @@ class MinimaxAgent(Agent):
         if depth == 0:
             return self._evaluate(board, root_color), []    
     
+    
+        if not hasattr(self, "_ordering_root_depth"):
+            self._ordering_root_depth = depth
+        self._ordering_depth_now = depth
+        
         legal = list(board.legal_moves)
         if not legal:
             return self._evaluate(board, root_color), []
