@@ -7,7 +7,7 @@ Created on Mon Oct 27 13:32:06 2025
 
 from greedy_material_agent import GreedyMaterialAgent
 from minimax_agent import MinimaxAgent
-from evaluation_agent import EvaluationAgent
+from evaluation_agent_model import EvaluationAgent
 from quiescence_agent import QuiescenceAgent
 from match import play_match  # if you already have it
 from divergence_logger import compare_agents_at_root
@@ -19,7 +19,7 @@ def divergence_probe(board, white, black):
 
 #A = EvaluationAgent(depth=2, seed=3, use_alpha_beta=False, weights=[1.0, 0.1, 0.1])
 A = MinimaxAgent(depth=3)
-B = EvaluationAgent(depth=3, ordering_depth=1, weights=[1.0, 0.1, 0.1])
+B = EvaluationAgent(depth=3, ordering_depth=1, model_path='match-database/eval_model.json')
 #B = QuiescenceAgent(depth=4, use_alpha_beta=True, log_quiescence_diffs=False, log_limit=99, log_threshold=2.5)
 #play_match(A, B, games=1, tc=(600, 0), divergence_probe = divergence_probe)
 play_match(A, B, games=1, tc=(200, 0))
