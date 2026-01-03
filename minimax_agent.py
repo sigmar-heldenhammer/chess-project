@@ -51,6 +51,7 @@ class MinimaxAgent(Agent):
     ):
         assert depth >= 1
         self.depth = depth
+        self.seed = seed
         self.rand = random.Random(seed)
         self.use_alpha_beta = use_alpha_beta
         self.order_moves = order_moves
@@ -130,6 +131,7 @@ class MinimaxAgent(Agent):
         
         
         local_depth = self.time_adjustment(orig_time, time_left, self.depth)
+        
     
         # PV-aware call
         prev_rc = getattr(self, "_eval_root_color", None)

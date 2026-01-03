@@ -5,8 +5,8 @@
 [White "A"]
 [Black "B"]
 [Result "1-0"]
-[TimeControl "200+0"]
+[TimeControl "1200+0"]
 [Termination "checkmate"]
 
-1. Nh3 d5 2. Ng5 e5 3. h4 Bg4 4. Rh2 Bb4 5. Rh1 Qf6 6. Rh2 Qf4 7. Rh1 Nc6 8. Rg1 Qh2 9. Nh3 Bxh3 10. gxh3 Qxg1 11. Nc3 Bxc3 12. dxc3 Nf6 13. Qd3 e4 14. Qb5 Kd7 15. Qxb7 Rab8 16. Qa6 Rb6 17. Qa4 Ke6 18. Bg5 Nd7 19. Bc1 Nc5 20. Qa3 Rb5 21. c4 dxc4 22. Qe3 Rd8 23. a4 Nb4 24. Qc3 Nd5 25. Qxc4 Ra5 26. Bg5 Rb8 27. Bd2 Ra6 28. Qxc5 e3 29. fxe3 Rxb2 30. O-O-O Rb8 31. Qc4 Rd6 32. Qe4+ Kf6 33. Qd4+ Kg6 34. Qe4+ Kh6 35. Qe5 Nxe3 36. Bxe3+ g5 37. hxg5+ Kh5 38. Bxg1 Re6 39. Qxc7 Rb4 40. Qxf7+ Rg6 41. Bxa7 Rxa4 42. Qxh7+ Kxg5 43. Be3+ Kf6 44. Rd6+ Ke5 45. Qe7+ Kf5 46. Rd5# 1-0
+1. Nh3 f6 2. Nf4 b6 3. Nh5 c5 4. Rg1 e6 5. Rh1 h6 6. Rg1 Rh7 7. Rh1 Be7 8. Rg1 Bb7 9. Rh1 Bc6 10. Rg1 Bd5 11. Nf4 Rh8 12. Ng6 Rh7 13. Nc3 Bc6 14. d3 Bd5 15. Nxe7 Nxe7 16. Bf4 e5 17. Nxd5 Nxd5 18. Bg3 Nb4 19. Bh4 Kf8 20. Bg3 Kg8 21. Bh4 Kh8 22. Bg3 Qg8 23. Rh1 Qe6 24. Rg1 Qd6 25. Rh1 N4a6 26. Rg1 Qd5 27. Rh1 d6 28. Rg1 Qd4 29. c3 Qg4 30. Rh1 Qg5 31. Rg1 h5 32. Rh1 Rh6 33. Rg1 d5 34. Rh1 Rh7 35. Rg1 b5 36. Rh1 Rh6 37. Rg1 b4 38. cxb4 cxb4 39. Rh1 Rh7 40. Rg1 h4 41. Qa4 Qh5 42. Bxh4 e4 43. g4 Qe5 44. Bg3 Qe6 45. dxe4 Qxe4 46. Qb5 Rh6 47. Qb7 Qxg4 48. Qxa8 Rg6 49. Qxa7 Qe6 50. Qa8 Rg5 51. Qb7 Qf5 52. Qa8 Qe6 53. Qb7 Qf5 54. Kd2 Rg6 55. Ke1 Rg5 56. Qa8 Rg6 57. Qb7 Rg5 58. h3 Rg6 59. Qa8 Rg5 60. Qb7 Rg6 61. h4 Rg4 62. Bh3 Qe6 63. Bxg4 Qxg4 64. Qxd5 Nd7 65. Qa8+ Ndb8 66. Qb7 Qg6 67. Qc8+ Kh7 68. Qb7 Kh8 69. Qc8+ Kh7 70. Bh2 Qe4 71. Bxb8 Qa8 72. Qf5+ Kh8 73. Qc8+ Kh7 74. Qf5+ Kh8 75. Qh5+ Kg8 76. Qe8+ Kh7 77. Qg6+ Kh8 78. Qxg7# 1-0
 

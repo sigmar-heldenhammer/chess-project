@@ -21,7 +21,10 @@ Criteria implemented:
 from __future__ import annotations
 
 import chess
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
+from collections import defaultdict
+
+
 
 # We extend the existing MinimaxAgent from minimax_agent.py
 from minimax_agent import MinimaxAgent, PIECE_VALUES, MATE_VALUE
@@ -51,7 +54,7 @@ class EvaluationAgent(MinimaxAgent):
     ) -> None:
         super().__init__(depth=depth, seed=seed, use_alpha_beta=use_alpha_beta, order_moves=order_moves)
         # Default equal weights for three criteria (material, center, activity)
-        self.weights: List[float] = list(weights) if weights is not None else [1.0, 1.0, 1.0]
+        self.weights: List[float] = list(weights) if weights is not None else [1.0, 1.0, 1.0, 1.0]
         self._center = tuple(_central_squares())
         self.ordering_depth = max(ordering_depth, 0)
 
@@ -117,6 +120,41 @@ class EvaluationAgent(MinimaxAgent):
         opponent_moves = legal_count_for(not root_color)
         denom = max(1, friendly_moves + opponent_moves)
         return (friendly_moves - opponent_moves) / float(denom)
+    
+    def _crit_active_pieces(self, board: chess.Board, root_color: chess.Color) -> float:
+        """ 
+        Number of active pieces for root_color relative to total number on the board,
+        normalized on [-1, -1]
+        Active pieces defined as those that have three or more legal moves
+        """
+        
+        def active_piece_count_for(color: chess.Color) -> int:
+            active_pieces = 0
+            prev_turn = board.turn
+            try:
+                board.turn = color
+        
+                # Count legal moves by from-square
+                counts_by_square: Dict[chess.Square, int] = defaultdict(int)
+                for mv in board.legal_moves:
+                    counts_by_square[mv.from_square] += 1
+        
+                # Build output list: one entry per piece of `color`
+                
+                for sq, piece in board.piece_map().items():
+                    if piece.color == color and counts_by_square.get(sq, 0) >= 3:
+                        active_pieces += 1
+        
+                return active_pieces
+            finally:
+                board.turn = prev_turn
+                
+        active_pieces = active_piece_count_for(root_color)
+        if board.turn == root_color:
+            return active_pieces
+        else:
+            return -1 * active_pieces
+        
 
     # --------------- Weighted combination + terminal handling ---------------
 
@@ -138,8 +176,9 @@ class EvaluationAgent(MinimaxAgent):
         c1 = self._crit_material_share(board, root_color)   # [-1,1]
         c2 = self._crit_center_control(board, root_color)   # [-1,1]
         c3 = self._crit_activity(board, root_color)         # [-1,1]
+        c4 = self._crit_active_pieces(board, root_color)    # [-1,1]
 
-        crits = (c1, c2, c3)
+        crits = (c1, c2, c3, c4)
         weights = self.weights
 
         # Pad or trim weights to match number of criteria

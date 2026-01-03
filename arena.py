@@ -40,6 +40,7 @@ def play_game(
         base, inc = time_control
         time_left = {chess.WHITE: base, chess.BLACK: base}
     else:
+        base = 100.0
         inc = 0.0
         time_left = {chess.WHITE: None, chess.BLACK: None}
 
