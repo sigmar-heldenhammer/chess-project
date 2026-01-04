@@ -169,7 +169,7 @@ class TTAgent(MinimaxAgent):
                         break  # beta cutoff
 
             # Store if fully searched (no cutoff) and TT enabled
-            if self.tt is not None: #and not cutoff:
+            if self.tt is not None and not cutoff:
                 key = self._tt_key(board)
                 self.tt[key] = TTEntry(depth=depth, score=best_val)
                 self.tt_stores += 1
@@ -195,7 +195,7 @@ class TTAgent(MinimaxAgent):
                         cutoff = True
                         break  # alpha cutoff
 
-            if self.tt is not None: #and not cutoff:
+            if self.tt is not None and not cutoff:
                 key = self._tt_key(board)
                 self.tt[key] = TTEntry(depth=depth, score=best_val)
                 self.tt_stores += 1

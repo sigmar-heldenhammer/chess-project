@@ -246,27 +246,68 @@ class MinimaxAgent(Agent):
 
 
     # ---- simple move ordering heuristics ----
-    def _ordered_moves(self, board: chess.Board, moves) -> list[chess.Move]:
+    def _move_activity(self, board: chess.Board) -> list[Tuple[chess.Move, float]]:
         """
-        Very light ordering: captures first (MVV-LVA-ish), then promotions,
-        then checks, then the rest. This helps alpha-beta a lot.
+        Return a list of (move, activity_score) for all legal moves on this board.
+
+        Activity is a heuristic score used for:
+          - move ordering in minimax (_ordered_moves sorts by this score)
+          - defining "active" moves in quiescence search (via a threshold)
+
+        Scoring components (additive):
+          - if side to move is in check: +1.0 baseline for ALL moves (evasion priority)
+          - captures: MVV-LVA-ish  (10*victim_value - 0.1*attacker_value)
+            * en-passant is treated as capturing a pawn
+          - promotions: +value(promoted_piece)  (capture+promotion is additive)
+          - giving check: +0.5 (tested via push/pop)
         """
-        scored: list[Tuple[float, chess.Move]] = []
-        for mv in moves:
+        in_check = board.is_check()
+        out: list[Tuple[chess.Move, float]] = []
+
+        for mv in board.legal_moves:
             score = 0.0
+
+            if in_check:
+                score += 1.0  # boost *all* evasions when in check
+
+            # Captures (including en-passant)
             if board.is_capture(mv):
-                victim = board.piece_at(mv.to_square)
                 attacker = board.piece_at(mv.from_square)
-                v = PIECE_VALUES.get(victim.piece_type, 0.0) if victim else 0.0
                 a = PIECE_VALUES.get(attacker.piece_type, 0.0) if attacker else 0.0
-                score += 10.0 * v - 0.1 * a  # MVV-LVA-ish
+
+                if board.is_en_passant(mv):
+                    v = PIECE_VALUES.get(chess.PAWN, 0.0)
+                else:
+                    victim = board.piece_at(mv.to_square)
+                    v = PIECE_VALUES.get(victim.piece_type, 0.0) if victim else 0.0
+
+                score += 10.0 * v - 0.1 * a
+
+            # Promotions
             if mv.promotion:
-                score += 5.0 + PIECE_VALUES.get(mv.promotion, 0.0)
-            # Quick check bonus (requires push/pop to test safely)
+                score += PIECE_VALUES.get(mv.promotion, 0.0)
+
+            # Check bonus (requires push/pop to test safely)
             board.push(mv)
             if board.is_check():
                 score += 0.5
             board.pop()
-            scored.append((score, mv))
+
+            out.append((mv, score))
+
+        return out
+
+    def _ordered_moves(self, board: chess.Board, moves) -> list[chess.Move]:
+        """
+        Order moves by descending activity score computed by _move_activity().
+
+        Moves with equal activity score are left in whatever order the sort produces
+        (we do not shuffle the zero-activity tail).
+        """
+        # Compute activity once for the full legal set, then score the provided subset.
+        activity = self._move_activity(board)
+        score_map = {mv: sc for mv, sc in activity}
+
+        scored: list[Tuple[float, chess.Move]] = [(score_map.get(mv, 0.0), mv) for mv in moves]
         scored.sort(key=lambda t: t[0], reverse=True)
         return [mv for _, mv in scored]

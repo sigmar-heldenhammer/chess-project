@@ -43,7 +43,7 @@ except Exception:
     MinimaxAgent = None  # type: ignore
     
 try:
-    from evaluation_agent import EvaluationAgent
+    from evaluation_agent_decorator import EvaluationAgent
 except Exception:
     EvaluationAgent = None  # type: ignore
     
@@ -51,6 +51,11 @@ try:
     from quiescence_agent import QuiescenceAgent
 except Exception:
     QuiescenceAgent = None  # type: ignore
+    
+try:
+    from tt_agent import TTAgent
+except Exception:
+    TTAgent = None  # type: ignore
 
 try:
     from arena import play_game  # expects signature from previous snippets
@@ -63,7 +68,8 @@ AGENT_REGISTRY: Dict[str, Any] = {
     "GreedyMaterialAgent": GreedyMaterialAgent,
     "MinimaxAgent": MinimaxAgent,
     "EvaluationAgent": EvaluationAgent,
-    "QuiescenceAgent": QuiescenceAgent
+    "QuiescenceAgent": QuiescenceAgent,
+    "TTAgent": TTAgent
 }
 
 # ---- CSV constants ----
@@ -133,40 +139,69 @@ def _save_rows(csv_path: str, rows: List[AgentRow]) -> None:
 # ---- Parameter parsing ----
 def parse_params(params_str: str) -> Dict[str, Any]:
     """
-    Parse 'key=value, key2=value2' into a dict. Supports int, float, bool, and bare strings.
-    Trims outer quotes for values. Returns {} for empty/whitespace-only input.
+    Parse a kwargs-like parameter string into a dict.
+
+    Supports:
+      - numbers, bools, None
+      - strings (quoted)
+      - lists/tuples/dicts (e.g., weights={"activity": 0.0, "active_pieces": 0.0})
+      - also tolerates bare identifiers as strings (e.g., foo=bar -> "bar")
+
+    Examples:
+      depth=2, seed=1, order_moves=True
+      weights={"activity": 0.0, "active_pieces": 0.0}, ordering_depth=1
+      weights=[1.0, 0.5, 0.0]
     """
     if params_str is None:
         return {}
     s = params_str.strip()
     if not s:
         return {}
-    parts = [p.strip() for p in s.split(",") if p.strip()]
+
+    import ast
+
+    # We parse by treating the string as the argument list to a dummy function call.
+    # This gives us robust comma handling (dicts/lists/tuples can contain commas).
+    try:
+        tree = ast.parse(f"f({s})", mode="eval")
+    except SyntaxError as e:
+        raise ValueError(f"Could not parse params '{params_str}': {e}") from e
+
+    if not isinstance(tree.body, ast.Call):
+        raise ValueError(f"Could not parse params '{params_str}': not a valid argument list.")
+
     out: Dict[str, Any] = {}
-    for p in parts:
-        if "=" not in p:
-            raise ValueError(f"Parameter '{p}' is missing '=' (expected key=value).")
-        k, v = p.split("=", 1)
-        key = k.strip()
-        val_raw = v.strip()
-        # Strip surrounding quotes (single, double, or smart quotes)
-        for q in ['"', "'", "“", "”", "‘", "’"]:
-            if val_raw.startswith(q) and val_raw.endswith(q) and len(val_raw) >= 2:
-                val_raw = val_raw[1:-1].strip()
-                break
-        # Try to coerce bool/int/float
-        low = val_raw.lower()
-        if low in ("true", "false"):
-            out[key] = (low == "true")
-        else:
-            try:
-                if "." in val_raw:
-                    out[key] = float(val_raw)
+
+    for kw in tree.body.keywords:
+        if kw.arg is None:
+            # This would correspond to **kwargs usage (e.g., **some_dict), which we don't support here.
+            raise ValueError("**kwargs expansion is not supported in params_str.")
+
+        key = kw.arg
+        node = kw.value
+
+        # Turn AST node into a Python value safely.
+        # - literal_eval handles dict/list/tuple/str/num/bool/None (as constants)
+        # - Names that aren't True/False/None we treat as bare strings for backward compatibility
+        try:
+            val = ast.literal_eval(node)
+        except Exception:
+            if isinstance(node, ast.Name):
+                name = node.id
+                if name in ("True", "False", "None"):
+                    val = {"True": True, "False": False, "None": None}[name]
                 else:
-                    out[key] = int(val_raw)
-            except ValueError:
-                out[key] = val_raw  # keep as string
+                    val = name  # tolerate foo=bar as "bar"
+            else:
+                raise ValueError(
+                    f"Unsupported value syntax for key '{key}' in params '{params_str}'. "
+                    f"Use Python-literal syntax (e.g., quotes for strings)."
+                )
+
+        out[key] = val
+
     return out
+
 
 
 # ---- Instantiation ----

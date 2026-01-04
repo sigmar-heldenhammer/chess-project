@@ -4,9 +4,9 @@
 [Round "?"]
 [White "A"]
 [Black "B"]
-[Result "1-0"]
+[Result "0-1"]
 [TimeControl "1200+0"]
 [Termination "checkmate"]
 
-1. Nh3 f6 2. Nf4 b6 3. Nh5 c5 4. Rg1 e6 5. Rh1 h6 6. Rg1 Rh7 7. Rh1 Be7 8. Rg1 Bb7 9. Rh1 Bc6 10. Rg1 Bd5 11. Nf4 Rh8 12. Ng6 Rh7 13. Nc3 Bc6 14. d3 Bd5 15. Nxe7 Nxe7 16. Bf4 e5 17. Nxd5 Nxd5 18. Bg3 Nb4 19. Bh4 Kf8 20. Bg3 Kg8 21. Bh4 Kh8 22. Bg3 Qg8 23. Rh1 Qe6 24. Rg1 Qd6 25. Rh1 N4a6 26. Rg1 Qd5 27. Rh1 d6 28. Rg1 Qd4 29. c3 Qg4 30. Rh1 Qg5 31. Rg1 h5 32. Rh1 Rh6 33. Rg1 d5 34. Rh1 Rh7 35. Rg1 b5 36. Rh1 Rh6 37. Rg1 b4 38. cxb4 cxb4 39. Rh1 Rh7 40. Rg1 h4 41. Qa4 Qh5 42. Bxh4 e4 43. g4 Qe5 44. Bg3 Qe6 45. dxe4 Qxe4 46. Qb5 Rh6 47. Qb7 Qxg4 48. Qxa8 Rg6 49. Qxa7 Qe6 50. Qa8 Rg5 51. Qb7 Qf5 52. Qa8 Qe6 53. Qb7 Qf5 54. Kd2 Rg6 55. Ke1 Rg5 56. Qa8 Rg6 57. Qb7 Rg5 58. h3 Rg6 59. Qa8 Rg5 60. Qb7 Rg6 61. h4 Rg4 62. Bh3 Qe6 63. Bxg4 Qxg4 64. Qxd5 Nd7 65. Qa8+ Ndb8 66. Qb7 Qg6 67. Qc8+ Kh7 68. Qb7 Kh8 69. Qc8+ Kh7 70. Bh2 Qe4 71. Bxb8 Qa8 72. Qf5+ Kh8 73. Qc8+ Kh7 74. Qf5+ Kh8 75. Qh5+ Kg8 76. Qe8+ Kh7 77. Qg6+ Kh8 78. Qxg7# 1-0
+1. Nh3 Nh6 2. Ng5 Ng4 3. Nc3 Nc6 4. Nd5 e6 5. Ne3 Nxe3 6. dxe3 Qxg5 7. Qd2 Rg8 8. Qc3 Bb4 9. Qxb4 Nxb4 10. Kd2 Qd5+ 11. Kc3 Nxa2+ 12. Rxa2 Qxa2 13. Kd4 Qb1 14. Bd2 d6 15. Kc3 Ke7 16. Kb3 Rh8 17. Bb4 Qc1 18. Bc3 Rg8 19. Bd4 Qe1 20. e4 Rh8 21. Bxg7 Rg8 22. Bd4 a6 23. Be3 Rg7 24. Bh6 Rg8 25. Bf4 Qxf2 26. e3 Rg7 27. Bh6 Rg6 28. Bf4 Ra7 29. h3 Kf8 30. h4 Kg7 31. h5 Rf6 32. Bg5 Qxf1 33. h6+ Kh8 34. Rxf1 Rxf1 35. Be7 Rf2 36. g3 Kg8 37. Kc3 Kh8 38. Bf8 Kg8 39. Be7 Rxc2+ 40. Kxc2 d5 41. Bc5 b6 42. Bd4 dxe4 43. Kc3 Kf8 44. Kb3 a5 45. Kc3 a4 46. Kb4 c5+ 47. Bxc5+ bxc5+ 48. Kxc5 Rb7 49. Kd4 Rb4+ 50. Ke5 Bd7 51. Kd6 Ke8 52. Ke5 Ke7 53. Kf4 Kf6 54. g4 e5+ 55. Kg3 Rxb2 56. g5+ Ke7 57. Kh4 Rh2+ 58. Kg3 Rh3+ 59. Kf2 Rf3+ 60. Ke2 Bb5+ 61. Kd2 Kd6 62. Kc3 Rxe3+ 63. Kb4 Rb3+ 64. Ka5 Kc5 65. g6 hxg6 66. h7 g5 67. h8=Q Kd4 68. Qb8 Bd3 69. Qd8+ Kc4 70. Qxg5 Rb5+ 71. Kxa4 Rb4+ 72. Ka5 Rb5+ 73. Ka6 Kd5 74. Qd8+ Ke6 75. Qe8+ Kf6 76. Qc6+ Ke7 77. Qc7+ Kf6 78. Qc6+ Kg7 79. Qc3 Rc5+ 80. Qxd3 exd3 81. Kb7 d2 82. Kb6 Rc3 83. Kb7 d1=Q 84. Kb8 Qb1+ 85. Ka8 Ra3# 0-1
 

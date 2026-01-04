@@ -11,7 +11,7 @@ from arena import play_game
 from random_agent import RandomAgent
 from greedy_material_agent  import GreedyMaterialAgent
 from minimax_agent  import MinimaxAgent
-from evaluation_agent import EvaluationAgent
+from evaluation_agent_decorator import EvaluationAgent
 from quiescence_agent import QuiescenceAgent
 
 
@@ -32,7 +32,8 @@ if __name__ == "__main__":
     play_game(
         white=HumanCLI(),
 
-        black=QuiescenceAgent(depth=4, seed=42, use_alpha_beta=True),
+        black=EvaluationAgent(depth=4, weights={"material_share": 1.0, "center_control": 0.1, "activity": 0.0, "active_pieces": 0.0, "pseudo_active_pieces": 0.1}),
+        #black=QuiescenceAgent(depth=4),
         time_control=None,
         on_update=write_svg,   # <— enable SVG output
     )

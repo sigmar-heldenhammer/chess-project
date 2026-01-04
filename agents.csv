@@ -1,10 +1,10 @@
 AgentID,AgentName,AgentInputs,Elo,Games
-1,MinimaxAgent,"depth=2, seed=2, use_alpha_beta=False",707.2891063150512,201
-2,GreedyMaterialAgent,seed=1,341.37718995684634,194
-3,RandomAgent,seed=12,123.84719013454168,185
-4,MinimaxAgent,"depth=2, seed=2, use_alpha_beta=False",748.122756311995,163
-5,EvaluationAgent,"depth=2, seed=5, use_alpha_beta=False",680.8172971306625,122
-6,MinimaxAgent,depth=3,1106.9879383123262,136
-7,QuiescenceAgent,depth=3,1102.672260781159,91
-8,QuiescenceAgent,depth=4,1176.6426143298604,97
-9,MinimaxAgent,depth=4,1082.1159558281606,133
+1,MinimaxAgent,depth=2,719.0665670552278,6
+2,MinimaxAgent,depth=3,786.2794317148713,10
+3,QuiescenceAgent,depth=3,883.0167534790653,19
+4,EvaluationAgent,"depth=3, weights={""material_share"": 1.0, ""center_control"": 0.1, ""activity"": 0.0, ""active_pieces"": 0.0, ""pseudo_active_pieces"": 0.1}",693.102357120717,15
+5,TTAgent,depth=3,744.788900415081,10
+6,QuiescenceAgent,depth=4,886.7998236973425,10
+7,MinimaxAgent,depth=4,862.6030797079477,11
+8,EvaluationAgent,"depth=4, weights={""material_share"": 1.0, ""center_control"": 0.1, ""activity"": 0.0, ""active_pieces"": 0.0, ""pseudo_active_pieces"": 0.1}",882.5459383368892,7
+9,TTAgent,depth=4,741.7971484728582,8

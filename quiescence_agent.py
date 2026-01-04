@@ -145,48 +145,42 @@ class QuiescenceAgent(MinimaxAgent):
 
         # Stand-pat: what plain minimax would return at this leaf
         stand_pat = self._evaluate(board, root_color)
-        
-        if board.is_check():
-            active_moves = [m for m in board.legal_moves]
 
-        else:
+        scored_moves = self._move_activity(board)
+        score_map = {mv: sc for mv, sc in scored_moves}
+
+
+       
         # Apply stand-pat bounds
-            if maximizing:
-                if self.use_alpha_beta and stand_pat >= beta:
-                    qscore = stand_pat
-                    self._maybe_log_qdiff(entry_fen, root_color, entry_turn, maximizing, in_check,
-                                          stand_pat, qscore, best_first_move=None, captures_considered=0, captures_searched=0)
-                    return qscore
-                if stand_pat > alpha:
-                    alpha = stand_pat
-            else:
-                if self.use_alpha_beta and stand_pat <= alpha:
-                    qscore = stand_pat
-                    self._maybe_log_qdiff(entry_fen, root_color, entry_turn, maximizing, in_check,
-                                          stand_pat, qscore, best_first_move=None, captures_considered=0, captures_searched=0)
-                    return qscore
-                if stand_pat < beta:
-                    beta = stand_pat
-    
-            # Generate capture moves only
-            active_moves = [m for m in board.legal_moves if (board.is_capture(m) or m.promotion)]
+        if maximizing:
+            if self.use_alpha_beta and stand_pat >= beta:
+                qscore = stand_pat
+                self._maybe_log_qdiff(entry_fen, root_color, entry_turn, maximizing, in_check,
+                                      stand_pat, qscore, best_first_move=None, captures_considered=0, captures_searched=0)
+                return qscore
+            if stand_pat > alpha:
+                alpha = stand_pat
+        else:
+            if self.use_alpha_beta and stand_pat <= alpha:
+                qscore = stand_pat
+                self._maybe_log_qdiff(entry_fen, root_color, entry_turn, maximizing, in_check,
+                                      stand_pat, qscore, best_first_move=None, captures_considered=0, captures_searched=0)
+                return qscore
+            if stand_pat < beta:
+                beta = stand_pat
+
+        # Generate "active" moves using an activity threshold.
+        # Threshold is set above the check bonus (+0.5), so checks alone are excluded.
+        ACTIVITY_THRESHOLD = 1.0
+        active_moves = [mv for mv, sc in scored_moves if sc >= ACTIVITY_THRESHOLD]
 
         if not active_moves:
             qscore = stand_pat
             self._maybe_log_qdiff(entry_fen, root_color, entry_turn, maximizing, in_check,
                                   stand_pat, qscore, best_first_move=None, captures_considered=0, captures_searched=0)
             return qscore
-
-        # Simple capture ordering (MVV-LVA-ish) to improve pruning
-        def cap_score(mv: chess.Move) -> float:
-            victim = board.piece_at(mv.to_square)
-            attacker = board.piece_at(mv.from_square)
-            v = PIECE_VALUES.get(victim.piece_type, 0.0) if victim else 0.0
-            a = PIECE_VALUES.get(attacker.piece_type, 0.0) if attacker else 0.0
-            promo = PIECE_VALUES.get(mv.promotion, 0.0) if mv.promotion else 0.0
-            return 10.0 * v - 0.1 * a + promo
-
-        active_moves.sort(key=cap_score, reverse=True)
+        # Order by activity score (higher first)
+        active_moves.sort(key=lambda mv: score_map.get(mv, 0.0), reverse=True)
 
         best_first_move = None
         captures_searched = 0
