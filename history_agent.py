@@ -103,22 +103,22 @@ class HistoryAgent(TTAgent):
 
     # --- public API override ---
 
-    def select_move(
-        self,
-        board: chess.Board,
-        *,
-        color: chess.Color | None = None,
-        time_left: Optional[float] = None,
-        orig_time: Optional[float] = None,
-        **kwargs
-    ) -> chess.Move:
-        # Clear per-game history when we detect a new game at the root call.
-        self._maybe_reset_history_for_new_game(board)
+    # def select_move(
+    #     self,
+    #     board: chess.Board,
+    #     *,
+    #     color: chess.Color | None = None,
+    #     time_left: Optional[float] = None,
+    #     orig_time: Optional[float] = None,
+    #     **kwargs
+    # ) -> chess.Move:
+    #     # Clear per-game history when we detect a new game at the root call.
+    #     # self._maybe_reset_history_for_new_game(board)
 
         
-        #self.dump_table(self._history_white, "white")
-        #self.dump_table(self._history_black, "black")
-        return super().select_move(board, color=color, time_left=time_left, orig_time=orig_time, **kwargs)
+    #     #self.dump_table(self._history_white, "white")
+    #     #self.dump_table(self._history_black, "black")
+    #     return super().select_move(board, color=color, time_left=time_left, orig_time=orig_time, **kwargs)
 
     # --- move ordering override ---
 
@@ -154,13 +154,11 @@ class HistoryAgent(TTAgent):
         """
         Same as TTAgent._search, but with history updates on maximizing-node cutoffs (Option B).
         """
-# =============================================================================
-#         if depth == self.depth:
-#             white_len = len(self._history_white)
-#             black_len = len(self._history_black)
-#             print(f"white: {white_len}")
-#             print(f"black: {black_len}")
-# =============================================================================
+        # if depth == self.depth:
+        #     white_len = len(self._history_white)
+        #     black_len = len(self._history_black)
+        #     print(f"white: {white_len}")
+        #     print(f"black: {black_len}")
         
         
         # 1) TT probe (only for positive depths; leaf evals are cheap and depth-dependent)
@@ -236,6 +234,7 @@ class HistoryAgent(TTAgent):
                         beta = best_val
                     if alpha >= beta:
                         cutoff = True
+                        #self._bump_history(board.turn, mv)
                         break  # alpha cutoff
 
             if self.tt is not None and not cutoff:

@@ -84,6 +84,7 @@ class TTAgent(MinimaxAgent):
         )
         if tt_max_entries < 0:
             raise ValueError("tt_max_entries must be >= 0")
+
         self.tt_max_entries = int(tt_max_entries)
         self.tt = LFUCache(maxsize=self.tt_max_entries) if self.tt_max_entries > 0 else None
 
@@ -105,6 +106,17 @@ class TTAgent(MinimaxAgent):
         self.tt_lookups = 0
         self.tt_hits = 0
         self.tt_stores = 0
+        
+    def tt_probe(self,
+                 board: chess.Board,
+                 depth: int):
+        if self.tt is not None and depth > 0:
+            self.tt_lookups += 1
+            key = self._tt_key(board)
+            ent = self.tt.get(key)
+            if ent is not None and ent.depth >= depth:
+                self.tt_hits += 1
+                return ent.score
 
     # --- override search to add TT lookup/store ---
     def _search(
@@ -116,20 +128,24 @@ class TTAgent(MinimaxAgent):
         alpha: float,
         beta: float,
     ):
+        
+
         """
         PV-aware alpha-beta: returns (score, pv).
         This override adds a TT lookup/store layer.
 
         On TT hit: returns (cached_score, []).
         """
+        
+        if depth < self.depth:
         # 1) TT probe (only for positive depths; leaf evals are cheap and depth-dependent)
-        if self.tt is not None and depth > 0:
-            self.tt_lookups += 1
-            key = self._tt_key(board)
-            ent = self.tt.get(key)
-            if ent is not None and ent.depth >= depth:
-                self.tt_hits += 1
-                return ent.score, []
+            if self.tt is not None and depth > 0:
+                self.tt_lookups += 1
+                key = self._tt_key(board)
+                ent = self.tt.get(key)
+                if ent is not None and ent.depth >= depth:
+                    self.tt_hits += 1
+                    return ent.score, []
 
         # 2) Terminal (mate/draw/claim)
         if board.is_game_over(claim_draw=True):
@@ -153,6 +169,7 @@ class TTAgent(MinimaxAgent):
             best_val = -math.inf
             best_pv: List[chess.Move] = []
             for mv in legal:
+                
                 board.push(mv)
                 child_val, child_pv = self._search(board, depth - 1, root_color, False, alpha, beta)
                 board.pop()

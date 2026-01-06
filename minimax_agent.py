@@ -77,7 +77,7 @@ class MinimaxAgent(Agent):
             mat = _material_balance(board, root_color)
             c   = self.draw_contempt
 
-            # If we're better (mat >= 0), we *dislike* a draw; if worse, we *like* a draw.
+            # If we're better or even (mat >= 0), we *dislike* a draw; if worse, we *like* a draw.
             return (-c) if mat >= 0.0 else (+c)
     
         # 2) Stand-pat score
@@ -155,7 +155,9 @@ class MinimaxAgent(Agent):
         # If we have a PV, first move in PV is the best root move
         if pv:
             best_move = pv[0]
+            # print(board.fullmove_number, best_move)
         else:
+            # print("oh no!")
             # Fallback if some subclass returned only a float: do a minimal “pick any best”
             # (preserves behavior, though normally pv[0] should exist)
             best_val = float("-inf")
@@ -171,6 +173,7 @@ class MinimaxAgent(Agent):
         self.last_root_score = best_score
         self.last_root_pv = pv
     
+
         return best_move
 
 
@@ -218,14 +221,17 @@ class MinimaxAgent(Agent):
                 board.push(mv)
                 child_val, child_pv = self._search(board, depth - 1, root_color, False, alpha, beta)
                 board.pop()
+                
                 if child_val > best_val:
                     best_val = child_val
                     best_pv = [mv] + child_pv
+                    
                 if self.use_alpha_beta:
                     if best_val > alpha:
                         alpha = best_val
                     if alpha >= beta:
                         break  # beta cutoff
+                        
             return best_val, best_pv
         else:
             best_val = math.inf

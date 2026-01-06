@@ -29,6 +29,8 @@ def write_svg(board: chess.Board, move: chess.Move, ply: int):
 
 
 if __name__ == "__main__":
+    pgn_out = open("human_game.pgn", "w", encoding="utf-8")
+
     play_game(
         white=HumanCLI(),
 
@@ -36,6 +38,7 @@ if __name__ == "__main__":
         #black=QuiescenceAgent(depth=4),
         time_control=None,
         on_update=write_svg,   # <— enable SVG output
+        pgn_out=pgn_out
     )
 
 """
