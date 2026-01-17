@@ -1,13 +1,10 @@
-# modular_search_agent.py
-# First-draft “Strategy + Template” minimax framework:
-# - One canonical alpha-beta search loop (no duplication)
-# - Pluggable strategies: Evaluation, Terminal, Leaf, Ordering(+history hooks), TT, Depth policy
-# - Defaults implement a basic minimax agent equivalent in spirit to your current MinimaxAgent
-#
-# Notes:
-# - This is a framework draft: intentionally conservative and readable.
-# - It supports TT + history hooks structurally, but by default uses NoTT + basic ordering.
-# - PV is always constructed by the search loop (TT returns only hints / cached scores, never PV).
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jan 16 13:00:45 2026
+
+@author: Judson
+"""
+
 
 from __future__ import annotations
 

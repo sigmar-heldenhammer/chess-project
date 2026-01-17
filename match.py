@@ -12,7 +12,6 @@ import time
 import chess
 from typing import Optional, Callable
 from arena import play_game
-from random_agent import RandomAgent
 from agents import Agent
 
 # --- Timing wrapper -----------------------------------------------------------
