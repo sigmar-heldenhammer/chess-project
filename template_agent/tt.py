@@ -11,6 +11,10 @@ from .agent_templates import TTProbe, TTFlag
 from typing import Optional, Dict, Tuple
 
 class NoTT:
+    
+    def size(self):
+        return -1
+    
     def probe(self, board: chess.Board, *, depth: int, alpha: float, beta: float) -> TTProbe:
         return TTProbe(hit=False)
 
@@ -39,6 +43,9 @@ class SimpleDictTT:
     def _key(self, board: chess.Board) -> int:
         # polyglot hash is in python-chess
         return chess.polyglot.zobrist_hash(board)
+    
+    def size(self) -> int:
+        return len(self._table)
 
     def probe(self, board: chess.Board, *, depth: int, alpha: float, beta: float) -> TTProbe:
         k = self._key(board)

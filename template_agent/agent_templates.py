@@ -5,7 +5,7 @@ Created on Wed Jan 14 21:11:50 2026
 @author: Judson
 """
 
-from typing import Optional, Protocol, Sequence, List, Literal
+from typing import Optional, Protocol, Sequence, List, Literal, Callable
 import chess
 from dataclasses import dataclass
 
@@ -107,6 +107,7 @@ class OrderingPolicy(Protocol):
         self,
         board: chess.Board,
         moves: Sequence[chess.Move],
+        depth: int,
         *,
         tt_move_hint: Optional[chess.Move] = None,
     ) -> List[chess.Move]:
@@ -146,3 +147,16 @@ class DepthPolicy(Protocol):
         time_left: Optional[float],
     ) -> int:
         ...
+        
+class SearchDriver(Protocol):
+    """Controls how root search is executed (single depth, iterative deepening, etc.)."""
+
+    def run(
+        self,
+        *,
+        max_depth: int,
+        make_ctx: Callable[[int], SearchContext],
+        search: Callable[[SearchContext], SearchResult],
+    ) -> SearchResult:
+        ...
+

@@ -1,0 +1,13 @@
+agent_name,agent_color,game_id,move_number,depth,search_calls
+QSearchMinimax(d=2),black,9e942749,1,-1,9
+QSearchMinimax(d=2),black,9e942749,1,0,108
+QSearchMinimax(d=2),black,9e942749,1,1,20
+QSearchMinimax(d=2),black,9e942749,1,2,1
+QSearchMinimax(d=2),black,9e942749,2,-1,155
+QSearchMinimax(d=2),black,9e942749,2,0,159
+QSearchMinimax(d=2),black,9e942749,2,1,30
+QSearchMinimax(d=2),black,9e942749,2,2,1
+QSearchMinimax(d=2),black,9e942749,3,-1,79
+QSearchMinimax(d=2),black,9e942749,3,0,48
+QSearchMinimax(d=2),black,9e942749,3,1,31
+QSearchMinimax(d=2),black,9e942749,3,2,1

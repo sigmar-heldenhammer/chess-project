@@ -15,6 +15,7 @@ class BasicOrdering:
         self,
         board: chess.Board,
         moves: Sequence[chess.Move],
+        depth: int,
         *,
         tt_move_hint: Optional[chess.Move] = None,
     ) -> List[chess.Move]:
@@ -86,6 +87,7 @@ class ActivityOrdering(BasicOrdering):
         self,
         board: chess.Board,
         moves: Sequence[chess.Move],
+        depth: int,
         *,
         tt_move_hint: Optional[chess.Move] = None,
     ) -> List[chess.Move]:
@@ -154,11 +156,12 @@ class HistoryOrdering(ActivityOrdering):
         self,
         board: chess.Board,
         moves: Sequence[chess.Move],
+        depth: int,
         *,
         tt_move_hint: Optional[chess.Move] = None,
     ) -> List[chess.Move]:
         # Reset tables between games (best effort).
-        self._maybe_reset_for_new_game(board)
+        # self._maybe_reset_for_new_game(board)
 
         turn = board.turn
 
@@ -203,3 +206,60 @@ class HistoryOrdering(ActivityOrdering):
 
         # board.turn is the side-to-move at this node (board is popped back to node state).
         self._bump_history(board.turn, move)
+
+
+
+
+
+class QuiescentOrdering:
+    def __init__(
+        self,
+        base_ordering,
+        q_start_depth=0,
+        include_checks=False,
+        include_promotions=True,
+        include_evasions=False,
+    ):
+        self.base_ordering = base_ordering
+        self.q_start_depth = q_start_depth
+        self.include_checks = include_checks
+        self.include_promotions = include_promotions
+        self.include_evasions = include_evasions
+
+    def order_moves(self, board, moves, *, tt_move_hint=None, depth=None, **kwargs):
+        
+        if depth is None or depth > self.q_start_depth:
+            return self.base_ordering.order_moves(
+                board,
+                moves,
+                depth,
+                tt_move_hint=tt_move_hint,
+                **kwargs,
+            )
+
+        tactical = []
+        for mv in moves:
+            if self.include_evasions and board.is_check():
+                tactical.append(mv)
+            elif board.is_capture(mv):
+                tactical.append(mv)
+            elif self.include_promotions and mv.promotion is not None:
+                tactical.append(mv)
+            elif self.include_checks:
+                board.push(mv)
+                try:
+                    if board.is_check():
+                        tactical.append(mv)
+                finally:
+                    board.pop()
+
+        return self.base_ordering.order_moves(
+            board,
+            tactical,
+            tt_move_hint=None,
+            depth=depth,
+            **kwargs,
+        )
+
+    def on_cutoff(self, **kwargs):
+        return self.base_ordering.on_cutoff(**kwargs)

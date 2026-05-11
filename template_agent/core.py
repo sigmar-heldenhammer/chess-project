@@ -14,13 +14,15 @@ from __future__ import annotations
 
 from typing import Optional, List, Any
 from .agent_templates import SearchContext, SearchResult, Evaluator, CutoffKind, TTFlag, \
-    TerminalPolicy, LeafPolicy, OrderingPolicy, TranspositionTable, DepthPolicy
+    TerminalPolicy, LeafPolicy, OrderingPolicy, TranspositionTable, DepthPolicy, SearchDriver
 from .evals import MaterialEvaluator
 from .terminals import DefaultTerminal
 from .leaves import DepthZeroLeaf
 from .ordering import ActivityOrdering
 from .tt import NoTT
 from .depth import NoDepthAdjustment
+from .search_drivers import SingleDepthDriver
+from .trackers import SearchTracker
 
 import random
 
@@ -61,6 +63,7 @@ class ModularMinimaxAgent(Agent):
         self,
         *,
         depth: int = 3,
+        driver: Optional[SearchDriver] = None,
         evaluator: Optional[Evaluator] = None,
         terminal: Optional[TerminalPolicy] = None,
         leaf: Optional[LeafPolicy] = None,
@@ -76,13 +79,14 @@ class ModularMinimaxAgent(Agent):
 
         self.name = name
         self.depth = int(depth)
-
+        self.driver: SearchDriver = driver or SingleDepthDriver()
         self.evaluator: Evaluator = evaluator or MaterialEvaluator()
         self.terminal: TerminalPolicy = terminal or DefaultTerminal()
         self.leaf: LeafPolicy = leaf or DepthZeroLeaf()
         self.ordering: OrderingPolicy = ordering or ActivityOrdering()
         self.tt: TranspositionTable = tt or NoTT()
         self.depth_policy: DepthPolicy = depth_policy or NoDepthAdjustment()
+        self.tracker: Optional[SearchTracker] = None
 
         self.randomize_ties = bool(randomize_ties)
         if seed is not None:
@@ -110,20 +114,27 @@ class ModularMinimaxAgent(Agent):
             orig_time=orig_time,
             time_left=time_left,
         )
-
+        
+        # track the move number
+        self._tracking_move_number = kwargs.get("move_number", board.fullmove_number)
+        
         # Root search
-        ctx = SearchContext(
-            board=board,
-            root_color=root_color,
-            maximizing=True,
-            depth=eff_depth,
-            alpha=float("-inf"),
-            beta=float("+inf"),
-            time_left=time_left,
-            orig_time=orig_time,
-            ply_from_root=0,
-        )
-        res = self._search(ctx)
+        def make_ctx(d: int) -> SearchContext:
+            return SearchContext(
+                board=board,
+                root_color=root_color,
+                maximizing=True,
+                depth=d,
+                alpha=float("-inf"),
+                beta=float("+inf"),
+                time_left=time_left,
+                orig_time=orig_time,
+                ply_from_root=0,
+            )
+        
+        # if board.fullmove_number == 1:
+        #     print(self.tt.size())
+        res = self.driver.run(max_depth=eff_depth, make_ctx=make_ctx, search=self._search)
 
         # Choose root move
         if not res.pv:
@@ -146,6 +157,13 @@ class ModularMinimaxAgent(Agent):
     # ---- canonical alpha-beta loop (do not duplicate in subclasses) ----
     def _search(self, ctx: SearchContext) -> SearchResult:
         board = ctx.board
+        
+        # Track what's happening
+        if self.tracker is not None:
+            self.tracker.record(
+                move_number=self._tracking_move_number,
+                depth=ctx.depth
+            )
 
         # 1) Terminal check (history-aware). Do this before TT.
         term = self.terminal.terminal_value(board, ctx.root_color, self.evaluator)
@@ -153,7 +171,7 @@ class ModularMinimaxAgent(Agent):
             return SearchResult(value=term, pv=[], cutoff="none", best_move=None)
 
         # 2) Leaf check (depth==0 / quiescence hook). Do this before TT.
-        leaf_val = self.leaf.leaf_value(ctx, self.evaluator)
+        leaf_val = self.leaf.leaf_value(ctx, self.evaluator, self.ordering)
         if leaf_val is not None:
             return SearchResult(value=leaf_val, pv=[], cutoff="none", best_move=None)
 
@@ -163,17 +181,23 @@ class ModularMinimaxAgent(Agent):
 
         # For now: only return directly on EXACT hits.
         if tt_probe.hit and tt_probe.value is not None and tt_probe.flag == "EXACT":
-            return SearchResult(value=tt_probe.value, pv=[], cutoff="none", best_move=tt_hint)
+            if ctx.root_color == 'WHITE':
+                tt_lookup_val = tt_probe.value
+            else:
+                tt_lookup_val = -1.0 * tt_probe.value
+            
+            return SearchResult(value=tt_lookup_val, pv=[tt_probe.best_move_hint], cutoff="none", best_move=tt_hint)
 
         # 4) Generate and order moves
         moves = list(board.legal_moves)
-        if not moves:
+        ordered = self.ordering.order_moves(board, moves, depth=ctx.depth, tt_move_hint=tt_hint)
+        
+        if not ordered:
             # No legal moves; terminal_value should have caught mate/stalemate,
             # but keep safe fallback.
             val = self.evaluator.evaluate(board, ctx.root_color)
             return SearchResult(value=val, pv=[], cutoff="none", best_move=None)
 
-        ordered = self.ordering.order_moves(board, moves, tt_move_hint=tt_hint)
 
         # 5) Recurse
         best_val = float("-inf") if ctx.maximizing else float("+inf")
@@ -268,10 +292,15 @@ class ModularMinimaxAgent(Agent):
 
         # 6) TT store (at every node), using bound kind if cut off.
         # NOTE: Even if you start with exact-only, this signature is ready for bounds.
+        if ctx.root_color == 'WHITE':
+            tt_val = best_val
+        else:
+            tt_val = -1.0 * best_val
+        
         self.tt.store(
             board=ctx.board,
             depth=ctx.depth,
-            value=best_val,
+            value=tt_val,
             flag=stored_flag,
             best_move=best_move,
         )

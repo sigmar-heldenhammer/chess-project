@@ -102,6 +102,14 @@ def play_game(
     if pgn_out is not None:
         pgn_out.write(pgn_str + "\n\n")
 
+    for agent in agents:
+        agent = getattr(agent, "inner", agent)
+        tracker = getattr(agent, "tracker", None)
+
+        if tracker is not None:
+            tracker.write_csv()
+            agent.tracker = None    
+
     if not quiet:
         print("Final position:")
         print(board.unicode(borders=True))

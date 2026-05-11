@@ -1,0 +1,13 @@
+agent_name,agent_color,game_id,move_number,depth,search_calls
+EvalMinimax(d=3),white,9e942749,1,0,2096
+EvalMinimax(d=3),white,9e942749,1,1,154
+EvalMinimax(d=3),white,9e942749,1,2,20
+EvalMinimax(d=3),white,9e942749,1,3,1
+EvalMinimax(d=3),white,9e942749,2,0,1814
+EvalMinimax(d=3),white,9e942749,2,1,259
+EvalMinimax(d=3),white,9e942749,2,2,19
+EvalMinimax(d=3),white,9e942749,2,3,1
+EvalMinimax(d=3),white,9e942749,3,0,2918
+EvalMinimax(d=3),white,9e942749,3,1,347
+EvalMinimax(d=3),white,9e942749,3,2,18
+EvalMinimax(d=3),white,9e942749,3,3,1

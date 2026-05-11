@@ -11,7 +11,7 @@ import math
 
 class NoDepthAdjustment:
     def effective_depth(self, *, depth: int, orig_time: Optional[float], time_left: Optional[float]) -> int:
-        return max(int(depth), 0)
+        return int(depth)
 
 
 class LogDepthAdjustment:
