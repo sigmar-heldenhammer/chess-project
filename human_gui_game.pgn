@@ -1,0 +1,12 @@
+[Event "Self-Play"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "White"]
+[Black "Black"]
+[Result "1-0"]
+[TimeControl "-"]
+[Termination "checkmate"]
+
+1. g3 f6 2. Bg2 d6 3. d4 g6 4. Nf3 a6 5. O-O f5 6. Nc3 c5 7. dxc5 e6 8. cxd6 Qf6 9. e4 fxe4 10. Nxe4 Qg7 11. Re1 Kd7 12. Nc5+ Kc6 13. Nxe6 Bxe6 14. Rxe6 Qd7 15. Ne5+ Kc5 16. Nxd7+ Nxd7 17. Bxb7 Rb8 18. Bxa6 Kc6 19. b3 Nc5 20. Re1 Nxa6 21. Bb2 Nf6 22. Bxf6 Re8 23. Rxe8 Rg8 24. d7 Bd6 25. d8=Q Rxe8 26. Q8xd6+ Kb7 27. Qd7+ Kb8 28. Qxe8+ Ka7 29. Qdd7+ Kb6 30. Qed8+ Kc5 31. Qa7+ Kc6 32. Qxa6+ Kc5 33. Qd4# 1-0
+

@@ -13,6 +13,7 @@ from template_agent import make_basic_minimax
 from template_agent import make_history_minimax
 from template_agent import make_id_minimax
 from template_agent import make_eval_minimax
+from template_agent import make_qsearch_agent
 
 from human_cli_agent import HumanCLI
 
@@ -33,7 +34,7 @@ if __name__ == "__main__":
     play_game(
         white=HumanCLI(),
 
-        black=make_eval_minimax(depth=3),
+        black=make_qsearch_agent(depth=3, min_depth=-3),
         #black=QuiescenceAgent(depth=4),
         time_control=None,
         on_update=write_svg,   # <— enable SVG output

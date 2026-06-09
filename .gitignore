@@ -23,6 +23,7 @@ Thumbs.db
 data/
 *.sqlite3
 *.db
+images/
 
 # Node / frontend (if applicable)
 node_modules/

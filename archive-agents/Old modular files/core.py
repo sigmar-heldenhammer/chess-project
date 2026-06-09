@@ -1,7 +1,7 @@
 # modular_search_agent.py
 # First-draft “Strategy + Template” minimax framework:
 # - One canonical alpha-beta search loop (no duplication)
-# - Pluggable strategies: Evaluation, Terminal, Leaf, MoveSelection(+Ordering hooks), TT, Depth policy
+# - Pluggable strategies: Evaluation, Terminal, Leaf, Ordering(+history hooks), TT, Depth policy
 # - Defaults implement a basic minimax agent equivalent in spirit to your current MinimaxAgent
 #
 # Notes:
@@ -11,26 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Optional, List, Any
 
-from .agent_templates import (
-    SearchContext,
-    SearchResult,
-    Evaluator,
-    CutoffKind,
-    TTFlag,
-    TerminalPolicy,
-    LeafPolicy,
-    OrderingPolicy,
-    TranspositionTable,
-    DepthPolicy,
-    SearchDriver,
-)
+from typing import Optional, List, Any
+from .agent_templates import SearchContext, SearchResult, Evaluator, CutoffKind, TTFlag, \
+    TerminalPolicy, LeafPolicy, OrderingPolicy, TranspositionTable, DepthPolicy, SearchDriver
 from .evals import MaterialEvaluator
 from .terminals import DefaultTerminal
 from .leaves import DepthZeroLeaf
 from .ordering import ActivityOrdering
-from .move_selection import MoveSelectionPolicy, DefaultMoveSelection
 from .tt import NoTT
 from .depth import NoDepthAdjustment
 from .search_drivers import SingleDepthDriver
@@ -39,7 +27,6 @@ from .trackers import SearchTracker
 import random
 
 import chess
-
 try:
     import chess.polyglot
 except ImportError as e:  # pragma: no cover
@@ -55,6 +42,7 @@ except Exception:  # pragma: no cover
         pass
 
 
+
 # ----------------------------
 # The modular search agent (single canonical loop)
 # ----------------------------
@@ -66,9 +54,8 @@ class ModularMinimaxAgent(Agent):
     Strategies:
       - evaluator: static evaluation (non-terminal)
       - terminal: mate/draw/claim logic
-      - leaf: depth handling
-      - move_selection: move filtering/selection + move ordering
-      - ordering: move ordering + optional on_cutoff hook, used by move_selection
+      - leaf: depth==0 handling (static now; quiescence later)
+      - ordering: move ordering + optional on_cutoff hook (history later)
       - tt: transposition table probe/store (NoTT by default)
       - depth_policy: time-based effective depth (NoDepthAdjustment by default)
     """
@@ -81,7 +68,6 @@ class ModularMinimaxAgent(Agent):
         terminal: Optional[TerminalPolicy] = None,
         leaf: Optional[LeafPolicy] = None,
         ordering: Optional[OrderingPolicy] = None,
-        move_selection: Optional[MoveSelectionPolicy] = None,
         tt: Optional[TranspositionTable] = None,
         depth_policy: Optional[DepthPolicy] = None,
         randomize_ties: bool = False,
@@ -98,7 +84,6 @@ class ModularMinimaxAgent(Agent):
         self.terminal: TerminalPolicy = terminal or DefaultTerminal()
         self.leaf: LeafPolicy = leaf or DepthZeroLeaf()
         self.ordering: OrderingPolicy = ordering or ActivityOrdering()
-        self.move_selection: MoveSelectionPolicy = move_selection or DefaultMoveSelection(self.ordering)
         self.tt: TranspositionTable = tt or NoTT()
         self.depth_policy: DepthPolicy = depth_policy or NoDepthAdjustment()
         self.tracker: Optional[SearchTracker] = None
@@ -129,11 +114,11 @@ class ModularMinimaxAgent(Agent):
             orig_time=orig_time,
             time_left=time_left,
         )
-
-        # Track the move number.
+        
+        # track the move number
         self._tracking_move_number = kwargs.get("move_number", board.fullmove_number)
-
-        # Root search.
+        
+        # Root search
         def make_ctx(d: int) -> SearchContext:
             return SearchContext(
                 board=board,
@@ -146,13 +131,14 @@ class ModularMinimaxAgent(Agent):
                 orig_time=orig_time,
                 ply_from_root=0,
             )
-
+        
+        # if board.fullmove_number == 1:
+        #     print(self.tt.size())
         res = self.driver.run(max_depth=eff_depth, make_ctx=make_ctx, search=self._search)
 
-        # Choose root move.
+        # Choose root move
         if not res.pv:
-            # Fallback: no PV. This can happen if no searched move improves on stand-pat,
-            # or if no legal moves are available.
+            # Fallback: no PV (should only happen if no legal moves)
             moves = list(board.legal_moves)
             if not moves:
                 raise ValueError("No legal moves available.")
@@ -171,12 +157,12 @@ class ModularMinimaxAgent(Agent):
     # ---- canonical alpha-beta loop (do not duplicate in subclasses) ----
     def _search(self, ctx: SearchContext) -> SearchResult:
         board = ctx.board
-
-        # Track what's happening.
+        
+        # Track what's happening
         if self.tracker is not None:
             self.tracker.record(
                 move_number=self._tracking_move_number,
-                depth=ctx.depth,
+                depth=ctx.depth
             )
 
         # 1) Terminal check (history-aware). Do this before TT.
@@ -184,7 +170,7 @@ class ModularMinimaxAgent(Agent):
         if term is not None:
             return SearchResult(value=term, pv=[], cutoff="none", best_move=None)
 
-        # 2) Leaf check. Do this before TT.
+        # 2) Leaf check (depth==0 / quiescence hook). Do this before TT.
         leaf_val = self.leaf.leaf_value(ctx, self.evaluator, self.ordering)
         if leaf_val is not None:
             return SearchResult(value=leaf_val, pv=[], cutoff="none", best_move=None)
@@ -195,73 +181,34 @@ class ModularMinimaxAgent(Agent):
 
         # For now: only return directly on EXACT hits.
         if tt_probe.hit and tt_probe.value is not None and tt_probe.flag == "EXACT":
-            if ctx.root_color == "WHITE":
+            if ctx.root_color == 'WHITE':
                 tt_lookup_val = tt_probe.value
             else:
                 tt_lookup_val = -1.0 * tt_probe.value
+            
+            return SearchResult(value=tt_lookup_val, pv=[tt_probe.best_move_hint], cutoff="none", best_move=tt_hint)
 
-            return SearchResult(
-                value=tt_lookup_val,
-                pv=[tt_probe.best_move_hint],
-                cutoff="none",
-                best_move=tt_hint,
-            )
-
-        # 4) Generate and select/order moves.
+        # 4) Generate and order moves
         moves = list(board.legal_moves)
-        selection = self.move_selection.select_moves(
-            board,
-            moves,
-            depth=ctx.depth,
-            ply_from_root=ctx.ply_from_root,
-            tt_move_hint=tt_hint,
-        )
-        ordered = selection.moves
+        ordered = self.ordering.order_moves(board, moves, depth=ctx.depth, tt_move_hint=tt_hint)
+        
+        if not ordered:
+            # No legal moves; terminal_value should have caught mate/stalemate,
+            # but keep safe fallback.
+            val = self.evaluator.evaluate(board, ctx.root_color)
+            return SearchResult(value=val, pv=[], cutoff="none", best_move=None)
+
+
+        # 5) Recurse
+        best_val = float("-inf") if ctx.maximizing else float("+inf")
+        best_pvs: List[List[chess.Move]] = []
+        best_move: Optional[chess.Move] = None
 
         alpha = ctx.alpha
         beta = ctx.beta
+
         cutoff_kind: CutoffKind = "none"
         stored_flag: TTFlag = "EXACT"
-
-        # 5) Optional stand-pat candidate for selective search.
-        #
-        # If a MoveSelectionPolicy searches only a subset of legal moves, stand-pat acts as
-        # a generic proxy for omitted quiet/non-selected continuations. This is deliberately
-        # not quiescence-specific. Stand-pat is disabled while in check because the side to
-        # move must respond to check.
-        stand_pat: Optional[float] = None
-        if selection.is_selective and not board.is_check():
-            stand_pat = self.evaluator.evaluate(board, ctx.root_color)
-
-            if ctx.maximizing:
-                if stand_pat >= beta:
-                    return SearchResult(value=stand_pat, pv=[], cutoff="beta", best_move=None)
-                if stand_pat > alpha:
-                    alpha = stand_pat
-            else:
-                if stand_pat <= alpha:
-                    return SearchResult(value=stand_pat, pv=[], cutoff="alpha", best_move=None)
-                if stand_pat < beta:
-                    beta = stand_pat
-
-        if not ordered:
-            # If selection produced no moves, terminal_value should have caught real
-            # no-legal-move terminal states. For selective search, use stand-pat when
-            # available; otherwise keep a safe static-eval fallback.
-            val = stand_pat
-            if val is None:
-                val = self.evaluator.evaluate(board, ctx.root_color)
-            return SearchResult(value=val, pv=[], cutoff="none", best_move=None)
-
-        # 6) Recurse.
-        if stand_pat is not None:
-            best_val = stand_pat
-            best_pvs: List[List[chess.Move]] = [[]]
-        else:
-            best_val = float("-inf") if ctx.maximizing else float("+inf")
-            best_pvs = []
-
-        best_move: Optional[chess.Move] = None
 
         for mv in ordered:
             board.push(mv)
@@ -302,7 +249,7 @@ class ModularMinimaxAgent(Agent):
                 if alpha >= beta:
                     cutoff_kind = "beta"
                     stored_flag = "LOWER"
-                    self.move_selection.on_cutoff(
+                    self.ordering.on_cutoff(
                         board=ctx.board,
                         root_color=ctx.root_color,
                         move=mv,
@@ -327,7 +274,7 @@ class ModularMinimaxAgent(Agent):
                 if alpha >= beta:
                     cutoff_kind = "alpha"
                     stored_flag = "UPPER"
-                    self.move_selection.on_cutoff(
+                    self.ordering.on_cutoff(
                         board=ctx.board,
                         root_color=ctx.root_color,
                         move=mv,
@@ -338,18 +285,18 @@ class ModularMinimaxAgent(Agent):
 
         # Choose PV among ties (optional randomization).
         if not best_pvs:
-            best_pv: List[chess.Move] = []
+            # Shouldn’t happen (we had moves), but keep safe.
+            best_pv = []
         else:
             best_pv = random.choice(best_pvs) if self.randomize_ties else best_pvs[0]
 
-        # 7) TT store (at every node), using bound kind if cut off.
-        # NOTE: If you later use TT with selective search, consider whether selective-node
-        # results should be stored differently from full-width exact results.
-        if ctx.root_color == "WHITE":
+        # 6) TT store (at every node), using bound kind if cut off.
+        # NOTE: Even if you start with exact-only, this signature is ready for bounds.
+        if ctx.root_color == 'WHITE':
             tt_val = best_val
         else:
             tt_val = -1.0 * best_val
-
+        
         self.tt.store(
             board=ctx.board,
             depth=ctx.depth,
@@ -359,3 +306,5 @@ class ModularMinimaxAgent(Agent):
         )
 
         return SearchResult(value=best_val, pv=best_pv, cutoff=cutoff_kind, best_move=best_move)
+
+

@@ -1,0 +1,342 @@
+# local_input.py
+"""
+Local input layer for the chess GUI.
+
+This module provides the first local/desktop frontend pieces that plug into
+ChessGUIController:
+
+    - BoardGeometry:
+        Converts between local pixel coordinates and python-chess squares.
+
+    - LocalMouseInputAdapter:
+        Reads local mouse/window events and forwards square-clicks to the
+        platform-independent ChessGUIController.
+
+This module intentionally keeps all pygame-specific input handling outside of
+ChessGUIController. The controller should continue to know only about chess
+concepts such as chess.Square and chess.Move.
+
+Expected architecture:
+
+    pygame event / mouse pixel
+        ↓
+    LocalMouseInputAdapter
+        ↓
+    BoardGeometry.square_from_pixel(...)
+        ↓
+    ChessGUIController.handle_square_click(square)
+
+Assumptions about not-yet-implemented functionality:
+    1. A pygame-based app/main loop will create a pygame window and call
+       LocalMouseInputAdapter.handle_events() once per frame.
+
+    2. A pygame-based renderer will use the same BoardGeometry instance so
+       drawing and input coordinate mapping stay consistent.
+
+    3. The app/main loop owns the "running" flag. This adapter returns an
+       InputResult to tell the app whether the user requested quit.
+
+    4. ChessGUIController already exists in chess_gui_controller.py and exposes:
+           handle_square_click(square: chess.Square) -> None
+
+    5. Board orientation is included now so the same geometry can later support
+       board flipping when the human plays black.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional, Protocol
+
+import chess
+
+
+class SquareClickController(Protocol):
+    """
+    Minimal protocol expected by LocalMouseInputAdapter.
+
+    This avoids requiring a concrete import of ChessGUIController and keeps this
+    file loosely coupled. Any future controller with the same method can be used.
+    """
+
+    def handle_square_click(self, square: chess.Square) -> None:
+        ...
+
+
+@dataclass(frozen=True)
+class InputResult:
+    """
+    Result returned by LocalMouseInputAdapter.handle_events().
+
+    quit_requested:
+        True if the local window received a quit event.
+
+    square_clicked:
+        The chess square clicked this frame, if any. This is mainly useful for
+        debugging/logging; the adapter already forwards valid clicks to the
+        controller.
+    """
+
+    quit_requested: bool = False
+    square_clicked: Optional[chess.Square] = None
+
+
+@dataclass
+class BoardGeometry:
+    """
+    Converts between pixel coordinates and python-chess squares.
+
+    This class belongs to the local frontend because pixels are a local rendering
+    concept. A future web frontend can implement its own geometry in JavaScript
+    or send square names like "e2" directly.
+
+    Coordinate convention:
+        - Pixel origin is the top-left of the board.
+        - python-chess squares use rank/file, with A1 = 0.
+        - If white_at_bottom=True:
+              top-left visual square is a8
+              bottom-right visual square is h1
+        - If white_at_bottom=False:
+              top-left visual square is h1
+              bottom-right visual square is a8
+    """
+
+    board_left: int = 0
+    board_top: int = 0
+    square_size: int = 80
+    white_at_bottom: bool = True
+
+    @property
+    def board_size(self) -> int:
+        """
+        Inputs:
+            None
+
+        Outputs:
+            int:
+                Full board width/height in pixels.
+        """
+        return self.square_size * 8
+
+    def contains_pixel(self, pos: tuple[int, int]) -> bool:
+        """
+        Return whether a pixel coordinate is inside the board.
+
+        Inputs:
+            pos:
+                Local pixel coordinate, usually from a mouse event.
+
+        Outputs:
+            bool
+        """
+        x, y = pos
+        return (
+            self.board_left <= x < self.board_left + self.board_size
+            and self.board_top <= y < self.board_top + self.board_size
+        )
+
+    def square_from_pixel(self, pos: tuple[int, int]) -> Optional[chess.Square]:
+        """
+        Convert a local pixel coordinate into a python-chess square.
+
+        Inputs:
+            pos:
+                Pixel coordinate as (x, y).
+
+        Outputs:
+            chess.Square | None:
+                The clicked square, or None if the click was outside the board.
+        """
+        if not self.contains_pixel(pos):
+            return None
+
+        x, y = pos
+
+        visual_file = (x - self.board_left) // self.square_size
+        visual_rank_from_top = (y - self.board_top) // self.square_size
+
+        if self.white_at_bottom:
+            file_index = visual_file
+            rank_index = 7 - visual_rank_from_top
+        else:
+            file_index = 7 - visual_file
+            rank_index = visual_rank_from_top
+
+        return chess.square(file_index, rank_index)
+
+    def pixel_from_square(self, square: chess.Square) -> tuple[int, int]:
+        """
+        Convert a python-chess square to the top-left local pixel coordinate.
+
+        Inputs:
+            square:
+                python-chess square.
+
+        Outputs:
+            tuple[int, int]:
+                Top-left pixel coordinate of the square.
+        """
+        file_index = chess.square_file(square)
+        rank_index = chess.square_rank(square)
+
+        if self.white_at_bottom:
+            visual_file = file_index
+            visual_rank_from_top = 7 - rank_index
+        else:
+            visual_file = 7 - file_index
+            visual_rank_from_top = rank_index
+
+        x = self.board_left + visual_file * self.square_size
+        y = self.board_top + visual_rank_from_top * self.square_size
+
+        return x, y
+
+    def center_pixel_from_square(self, square: chess.Square) -> tuple[int, int]:
+        """
+        Convert a python-chess square to the center local pixel coordinate.
+
+        Inputs:
+            square:
+                python-chess square.
+
+        Outputs:
+            tuple[int, int]:
+                Center pixel coordinate of the square.
+
+        This is useful for later features such as arrows, circles, drag pieces,
+        or legal-move indicators.
+        """
+        x, y = self.pixel_from_square(square)
+        half = self.square_size // 2
+        return x + half, y + half
+
+    def set_orientation(self, white_at_bottom: bool) -> None:
+        """
+        Set board orientation.
+
+        Inputs:
+            white_at_bottom:
+                True for normal white-at-bottom orientation, False for flipped.
+
+        Outputs:
+            None
+        """
+        self.white_at_bottom = white_at_bottom
+
+
+class LocalMouseInputAdapter:
+    """
+    pygame-based local input adapter.
+
+    This adapter converts pygame events into chess-square clicks and forwards
+    them to ChessGUIController.handle_square_click(...).
+
+    It should be called by the application loop, roughly:
+
+        input_result = input_adapter.handle_events()
+        if input_result.quit_requested:
+            running = False
+
+    Important:
+        This class imports pygame lazily inside handle_events(). That lets the
+        rest of the architecture be imported/tested even before pygame is
+        installed.
+    """
+
+    def __init__(
+        self,
+        controller: SquareClickController,
+        geometry: BoardGeometry,
+        *,
+        left_click_only: bool = True,
+    ):
+        """
+        Inputs:
+            controller:
+                Object exposing handle_square_click(square).
+
+            geometry:
+                BoardGeometry instance shared with the local renderer.
+
+            left_click_only:
+                If True, ignore non-left mouse buttons.
+
+        Outputs:
+            LocalMouseInputAdapter instance.
+        """
+        self.controller = controller
+        self.geometry = geometry
+        self.left_click_only = left_click_only
+
+    def handle_events(self) -> InputResult:
+        """
+        Poll local pygame events and forward valid board clicks to controller.
+
+        Inputs:
+            None
+
+        Outputs:
+            InputResult:
+                Indicates whether quit was requested and, for debugging, which
+                square was clicked.
+
+        Assumption:
+            pygame has already been initialized by the app/main loop.
+        """
+        try:
+            import pygame
+        except ImportError as exc:
+            raise RuntimeError(
+                "LocalMouseInputAdapter requires pygame. "
+                "Install pygame or use a different input adapter."
+            ) from exc
+
+        quit_requested = False
+        square_clicked: Optional[chess.Square] = None
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_requested = True
+                continue
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if self.left_click_only and event.button != 1:
+                    continue
+
+                square = self.geometry.square_from_pixel(event.pos)
+
+                if square is None:
+                    continue
+
+                square_clicked = square
+                self.controller.handle_square_click(square)
+
+        return InputResult(
+            quit_requested=quit_requested,
+            square_clicked=square_clicked,
+        )
+
+    def handle_click_position(self, pos: tuple[int, int]) -> Optional[chess.Square]:
+        """
+        Directly handle a local click position.
+
+        Inputs:
+            pos:
+                Pixel coordinate as (x, y).
+
+        Outputs:
+            chess.Square | None:
+                Square clicked, or None if outside the board.
+
+        Why this exists:
+            - Unit tests can call this without pygame.
+            - Other local GUI frameworks can reuse the geometry/controller
+              bridge even if they do not use pygame's event queue.
+        """
+        square = self.geometry.square_from_pixel(pos)
+
+        if square is None:
+            return None
+
+        self.controller.handle_square_click(square)
+        return square
