@@ -8,5 +8,5 @@
 [TimeControl "-"]
 [Termination "checkmate"]
 
-1. g3 f6 2. Bg2 d6 3. d4 g6 4. Nf3 a6 5. O-O f5 6. Nc3 c5 7. dxc5 e6 8. cxd6 Qf6 9. e4 fxe4 10. Nxe4 Qg7 11. Re1 Kd7 12. Nc5+ Kc6 13. Nxe6 Bxe6 14. Rxe6 Qd7 15. Ne5+ Kc5 16. Nxd7+ Nxd7 17. Bxb7 Rb8 18. Bxa6 Kc6 19. b3 Nc5 20. Re1 Nxa6 21. Bb2 Nf6 22. Bxf6 Re8 23. Rxe8 Rg8 24. d7 Bd6 25. d8=Q Rxe8 26. Q8xd6+ Kb7 27. Qd7+ Kb8 28. Qxe8+ Ka7 29. Qdd7+ Kb6 30. Qed8+ Kc5 31. Qa7+ Kc6 32. Qxa6+ Kc5 33. Qd4# 1-0
+1. g3 f6 2. Bg2 d6 3. Nf3 a6 4. d4 g5 5. O-O g4 6. Nfd2 c5 7. dxc5 dxc5 8. Ne4 Qxd1 9. Rxd1 e5 10. Nbc3 Nc6 11. Nd5 h5 12. Nc7+ Kf7 13. Nxa8 Be6 14. Nc7 Bf5 15. b3 Bxe4 16. Bxe4 Na5 17. Ba3 Ne7 18. Bxc5 Nxb3 19. axb3 b5 20. Rd8 Nd5 21. Bxd5+ Kg7 22. Bxf8+ Kg6 23. Ne6 Kf5 24. Ng7+ Kg6 25. Rxa6 Kg5 26. h4+ gxh3 27. Kh2 Kh6 28. Kxh3 h4 29. gxh4 b4 30. Be4 Rxf8 31. Rxf8 Kxg7 32. Raa8 f5 33. Rfb8 fxe4 34. Ra6 Kf7 35. Rb7+ Kg8 36. Ra8# 1-0
 

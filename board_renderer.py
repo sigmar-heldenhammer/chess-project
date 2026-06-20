@@ -2,55 +2,33 @@
 """
 Pygame board renderer for the first local chess GUI.
 
-This renderer consumes BoardViewModel from view_model.py and draws a simple
-board with pieces, selected-square highlight, legal-target hints, last-move
-highlight, and check highlight.
+Updated version:
+    Uses piece image files from an images/ directory instead of unicode chess
+    symbols.
 
-It intentionally does not know anything about:
-    - mouse events
-    - agents
-    - minimax/search
-    - move validation
-    - controller internals
+Expected image naming convention:
+    images/
+        white-pawn.svg
+        white-knight.svg
+        white-bishop.svg
+        white-rook.svg
+        white-queen.svg
+        white-king.svg
+        black-pawn.svg
+        black-knight.svg
+        black-bishop.svg
+        black-rook.svg
+        black-queen.svg
+        black-king.svg
 
-Expected architecture:
-
-    Game State + UI State
-        ↓
-    ViewModelBuilder.build(...)
-        ↓
-    BoardViewModel
-        ↓
-    BoardRenderer.draw(view_model)
-
-Assumptions about other not-yet-implemented functionality:
-    1. A local app/main loop initializes pygame and creates a display Surface,
-       then passes that Surface into BoardRenderer.
-
-    2. BoardGeometry from local_input.py is shared between:
-           - LocalMouseInputAdapter
-           - BoardRenderer
-
-       This guarantees the renderer and input adapter agree about where squares
-       are located.
-
-    3. The first version uses unicode chess piece symbols rendered with a system
-       font. Later, this can be replaced with image sprites without changing the
-       controller or view model.
-
-    4. BoardViewModel.pieces contains PieceView objects with:
-           square: str, e.g. "e4"
-           symbol: str, e.g. "P" or "k"
-           color: str
-           piece_type: str
-
-    5. BoardViewModel selected/target/last/check fields are square names like
-       "e4", not python-chess square integers.
+The extension may be .svg, .png, .jpg, .jpeg, or .webp. SVG is preferred if
+you downloaded SVG piece assets.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 import chess
@@ -61,11 +39,7 @@ from view_model import BoardViewModel, PieceView
 
 @dataclass(frozen=True)
 class RendererColors:
-    """
-    Colors used by the local pygame renderer.
-
-    Values are RGB tuples. You can replace this object later to theme the board.
-    """
+    """Colors used by the local pygame renderer."""
 
     light_square: tuple[int, int, int] = (238, 238, 210)
     dark_square: tuple[int, int, int] = (118, 150, 86)
@@ -75,47 +49,91 @@ class RendererColors:
     last_move: tuple[int, int, int] = (186, 202, 68)
     check: tuple[int, int, int] = (220, 70, 70)
 
-    white_piece: tuple[int, int, int] = (245, 245, 245)
-    black_piece: tuple[int, int, int] = (20, 20, 20)
-    piece_shadow: tuple[int, int, int] = (80, 80, 80)
-
     background: tuple[int, int, int] = (30, 30, 30)
     border: tuple[int, int, int] = (10, 10, 10)
     message_text: tuple[int, int, int] = (230, 230, 230)
+    fallback_piece_text: tuple[int, int, int] = (20, 20, 20)
+
+
+class PieceImageCache:
+    """
+    Loads and caches piece images for BoardRenderer.
+
+    Expected filenames:
+        {color}-{piece_type}.{ext}
+
+    Examples:
+        white-king.svg
+        black-rook.png
+    """
+
+    SUPPORTED_EXTENSIONS = (".svg", ".png", ".jpg", ".jpeg", ".webp")
+
+    def __init__(self, pygame_module, image_dir: str | Path, target_size: int):
+        self.pygame = pygame_module
+        self.image_dir = Path(image_dir)
+        self.target_size = target_size
+        self._cache: dict[tuple[str, str, int], object] = {}
+
+    def get(self, color: str, piece_type: str):
+        """
+        Return a scaled pygame Surface for a piece.
+
+        Raises FileNotFoundError if no matching image exists.
+        """
+        key = (color, piece_type, self.target_size)
+
+        if key not in self._cache:
+            path = self._find_image_path(color, piece_type)
+            image = self.pygame.image.load(str(path)).convert_alpha()
+            image = self.pygame.transform.smoothscale(
+                image,
+                (self.target_size, self.target_size),
+            )
+            self._cache[key] = image
+
+        return self._cache[key]
+
+    def _find_image_path(self, color: str, piece_type: str) -> Path:
+        base = f"{color}-{piece_type}"
+
+        for ext in self.SUPPORTED_EXTENSIONS:
+            candidate = self.image_dir / f"{base}{ext}"
+            if candidate.exists():
+                return candidate
+
+        extensionless = self.image_dir / base
+        if extensionless.exists():
+            return extensionless
+
+        supported = ", ".join(f"{base}{ext}" for ext in self.SUPPORTED_EXTENSIONS)
+        raise FileNotFoundError(
+            f"Could not find image for {color} {piece_type}. "
+            f"Looked in {self.image_dir}. Expected one of: {supported}"
+        )
 
 
 class BoardRenderer:
     """
-    Simple pygame renderer for BoardViewModel.
+    Simple pygame renderer for BoardViewModel using image-based pieces.
 
-    Public method:
-        draw(view_model: BoardViewModel) -> None
-
-    Rendering order:
-        1. background
-        2. board squares
-        3. last move highlight
-        4. selected square
-        5. check square
-        6. legal target hints
-        7. pieces
-        8. optional message/status
-        9. display flip/update
+    It consumes BoardViewModel only; it does not know about input, move
+    validation, agents, or controller internals.
     """
 
-    UNICODE_PIECES = {
-        "P": "♙",
-        "N": "♘",
-        "B": "♗",
-        "R": "♖",
-        "Q": "♕",
-        "K": "♔",
-        "p": "♟",
-        "n": "♞",
-        "b": "♝",
-        "r": "♜",
-        "q": "♛",
-        "k": "♚",
+    SYMBOL_TO_PIECE_TYPE = {
+        "P": "pawn",
+        "N": "knight",
+        "B": "bishop",
+        "R": "rook",
+        "Q": "queen",
+        "K": "king",
+        "p": "pawn",
+        "n": "knight",
+        "b": "bishop",
+        "r": "rook",
+        "q": "queen",
+        "k": "king",
     }
 
     def __init__(
@@ -126,6 +144,9 @@ class BoardRenderer:
         colors: Optional[RendererColors] = None,
         show_coordinates: bool = False,
         auto_present: bool = True,
+        image_dir: str | Path = "images",
+        piece_scale: float = 0.88,
+        allow_missing_piece_fallback: bool = True,
     ):
         """
         Inputs:
@@ -139,38 +160,44 @@ class BoardRenderer:
                 Optional RendererColors palette.
 
             show_coordinates:
-                Whether to draw rank/file coordinates. Defaults to False to
-                match the requested minimal first interface.
+                Whether to draw rank/file coordinates.
 
             auto_present:
                 If True, call pygame.display.flip() at the end of draw().
-                Set False if a larger app wants to manage presentation itself.
 
-        Outputs:
-            BoardRenderer instance.
+            image_dir:
+                Folder containing piece image files.
+
+            piece_scale:
+                Fraction of square_size used for piece image width/height.
+
+            allow_missing_piece_fallback:
+                If True, missing piece images are drawn as text labels instead
+                of crashing. If False, missing images raise FileNotFoundError.
         """
         self.surface = surface
         self.geometry = geometry
         self.colors = colors or RendererColors()
         self.show_coordinates = show_coordinates
         self.auto_present = auto_present
+        self.image_dir = self._resolve_image_dir(image_dir)
+        self.piece_scale = piece_scale
+        self.allow_missing_piece_fallback = allow_missing_piece_fallback
 
         self._pygame = self._load_pygame()
-        self._piece_font = self._make_piece_font()
         self._coord_font = self._make_coord_font()
         self._message_font = self._make_message_font()
+        self._fallback_piece_font = self._make_fallback_piece_font()
+
+        piece_image_size = max(1, int(self.geometry.square_size * self.piece_scale))
+        self._piece_images = PieceImageCache(
+            pygame_module=self._pygame,
+            image_dir=self.image_dir,
+            target_size=piece_image_size,
+        )
 
     def draw(self, view_model: BoardViewModel) -> None:
-        """
-        Draw the complete board view.
-
-        Inputs:
-            view_model:
-                BoardViewModel produced by ViewModelBuilder.
-
-        Outputs:
-            None
-        """
+        """Draw the complete board view."""
         self.clear()
         self.draw_board()
 
@@ -190,7 +217,6 @@ class BoardRenderer:
             self.present()
 
     def clear(self) -> None:
-        """Fill the whole surface background."""
         self.surface.fill(self.colors.background)
 
     def draw_board(self) -> None:
@@ -228,7 +254,6 @@ class BoardRenderer:
                 pygame.draw.rect(self.surface, color, rect)
 
     def draw_last_move(self, view_model: BoardViewModel) -> None:
-        """Highlight the origin and destination of the previous move."""
         if view_model.last_move_from is not None:
             self._fill_square_by_name(view_model.last_move_from, self.colors.last_move)
 
@@ -236,17 +261,14 @@ class BoardRenderer:
             self._fill_square_by_name(view_model.last_move_to, self.colors.last_move)
 
     def draw_selected_square(self, view_model: BoardViewModel) -> None:
-        """Highlight currently selected square."""
         if view_model.selected_square is not None:
             self._fill_square_by_name(view_model.selected_square, self.colors.selected)
 
     def draw_check_square(self, view_model: BoardViewModel) -> None:
-        """Highlight checked king square."""
         if view_model.check_square is not None:
             self._fill_square_by_name(view_model.check_square, self.colors.check)
 
     def draw_legal_targets(self, view_model: BoardViewModel) -> None:
-        """Draw simple dots on legal target squares."""
         pygame = self._pygame
         radius = max(5, self.geometry.square_size // 8)
 
@@ -256,37 +278,33 @@ class BoardRenderer:
             pygame.draw.circle(self.surface, self.colors.legal_target, center, radius)
 
     def draw_pieces(self, pieces: tuple[PieceView, ...]) -> None:
-        """Draw all pieces."""
         for piece in pieces:
             self.draw_piece(piece)
 
     def draw_piece(self, piece: PieceView) -> None:
-        """Draw one piece centered on its square."""
+        """Draw one piece centered on its square using image assets."""
         square = chess.parse_square(piece.square)
         center_x, center_y = self.geometry.center_pixel_from_square(square)
 
-        glyph = self.UNICODE_PIECES.get(piece.symbol, piece.symbol)
-        piece_color = (
-            self.colors.white_piece
-            if piece.color == "white"
-            else self.colors.black_piece
-        )
+        piece_type = piece.piece_type or self.SYMBOL_TO_PIECE_TYPE[piece.symbol]
+        color = piece.color
 
-        shadow_surface = self._piece_font.render(glyph, True, self.colors.piece_shadow)
-        shadow_rect = shadow_surface.get_rect(center=(center_x + 2, center_y + 2))
-        self.surface.blit(shadow_surface, shadow_rect)
+        try:
+            image = self._piece_images.get(color, piece_type)
+        except FileNotFoundError:
+            if not self.allow_missing_piece_fallback:
+                raise
+            self._draw_missing_piece_fallback(piece, center_x, center_y)
+            return
 
-        piece_surface = self._piece_font.render(glyph, True, piece_color)
-        piece_rect = piece_surface.get_rect(center=(center_x, center_y))
-        self.surface.blit(piece_surface, piece_rect)
+        rect = image.get_rect(center=(center_x, center_y))
+        self.surface.blit(image, rect)
 
     def draw_coordinates(self) -> None:
-        """Optionally draw board coordinates."""
         for square in chess.SQUARES:
             name = chess.square_name(square)
             file_char = name[0]
             rank_char = name[1]
-
             x, y = self.geometry.pixel_from_square(square)
 
             if (
@@ -312,12 +330,6 @@ class BoardRenderer:
                 self._draw_small_text(rank_char, x + 4, y + 2)
 
     def draw_message(self, message: Optional[str]) -> None:
-        """
-        Draw optional status message below the board.
-
-        The first UI can ignore this visually, but drawing it is helpful during
-        early testing when clicks are ignored or illegal.
-        """
         if not message:
             return
 
@@ -327,7 +339,6 @@ class BoardRenderer:
         self.surface.blit(text_surface, (x, y))
 
     def present(self) -> None:
-        """Flush the rendered frame to the display."""
         self._pygame.display.flip()
 
     def _fill_square_by_name(
@@ -335,9 +346,7 @@ class BoardRenderer:
         square_name: str,
         color: tuple[int, int, int],
     ) -> None:
-        """Fill a single square by algebraic square name."""
         pygame = self._pygame
-
         square = chess.parse_square(square_name)
         x, y = self.geometry.pixel_from_square(square)
 
@@ -353,6 +362,38 @@ class BoardRenderer:
         surface = self._coord_font.render(text, True, self.colors.border)
         self.surface.blit(surface, (x, y))
 
+    def _draw_missing_piece_fallback(
+        self,
+        piece: PieceView,
+        center_x: int,
+        center_y: int,
+    ) -> None:
+        label = piece.symbol
+        text_surface = self._fallback_piece_font.render(
+            label,
+            True,
+            self.colors.fallback_piece_text,
+        )
+        text_rect = text_surface.get_rect(center=(center_x, center_y))
+        self.surface.blit(text_surface, text_rect)
+
+    def _resolve_image_dir(self, image_dir: str | Path) -> Path:
+        """
+        Search order:
+            1. Provided path as-is, relative to current working directory.
+            2. Path relative to this file's directory.
+        """
+        raw = Path(image_dir)
+
+        if raw.exists():
+            return raw
+
+        relative_to_file = Path(__file__).resolve().parent / raw
+        if relative_to_file.exists():
+            return relative_to_file
+
+        return raw
+
     def _load_pygame(self):
         try:
             import pygame
@@ -367,25 +408,6 @@ class BoardRenderer:
 
         return pygame
 
-    def _make_piece_font(self):
-        pygame = self._pygame
-        font_size = int(self.geometry.square_size * 0.72)
-
-        candidates = [
-            "Segoe UI Symbol",
-            "DejaVu Sans",
-            "Arial Unicode MS",
-            "Noto Sans Symbols",
-            "FreeSerif",
-        ]
-
-        for font_name in candidates:
-            path = pygame.font.match_font(font_name)
-            if path:
-                return pygame.font.Font(path, font_size)
-
-        return pygame.font.SysFont(None, font_size)
-
     def _make_coord_font(self):
         pygame = self._pygame
         return pygame.font.SysFont(None, max(12, self.geometry.square_size // 5))
@@ -393,6 +415,10 @@ class BoardRenderer:
     def _make_message_font(self):
         pygame = self._pygame
         return pygame.font.SysFont(None, 24)
+
+    def _make_fallback_piece_font(self):
+        pygame = self._pygame
+        return pygame.font.SysFont(None, int(self.geometry.square_size * 0.65))
 
 
 def create_pygame_board_window(
@@ -402,6 +428,7 @@ def create_pygame_board_window(
     square_size: int = 80,
     white_at_bottom: bool = True,
     show_coordinates: bool = False,
+    image_dir: str | Path = "images",
 ):
     """
     Convenience factory for early manual testing.
@@ -431,6 +458,7 @@ def create_pygame_board_window(
         surface=surface,
         geometry=geometry,
         show_coordinates=show_coordinates,
+        image_dir=image_dir,
     )
 
     return surface, geometry, renderer
