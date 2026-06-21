@@ -289,6 +289,11 @@ class ChessGUIApp:
         """
         input_result = self.input_adapter.handle_events()
 
+        if input_result.window_resized and input_result.window_size is not None:
+            width, height = input_result.window_size
+            self.geometry.resize_to_window(width, height)
+            self.renderer.refresh_after_geometry_change()
+
         if input_result.quit_requested:
             self.quit_requested = True
             return

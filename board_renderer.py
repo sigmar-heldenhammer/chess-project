@@ -253,6 +253,19 @@ class BoardRenderer:
                 )
                 pygame.draw.rect(self.surface, color, rect)
 
+    def refresh_after_geometry_change(self) -> None:
+        piece_image_size = max(1, int(self.geometry.square_size * self.piece_scale))
+
+        self._piece_images = PieceImageCache(
+            pygame_module=self._pygame,
+            image_dir=self.image_dir,
+            target_size=piece_image_size,
+        )
+
+        self._coord_font = self._make_coord_font()
+        self._message_font = self._make_message_font()
+        self._fallback_piece_font = self._make_fallback_piece_font()
+
     def draw_last_move(self, view_model: BoardViewModel) -> None:
         if view_model.last_move_from is not None:
             self._fill_square_by_name(view_model.last_move_from, self.colors.last_move)
@@ -451,7 +464,7 @@ def create_pygame_board_window(
     width = board_left * 2 + geometry.board_size
     height = board_top * 2 + geometry.board_size + 40
 
-    surface = pygame.display.set_mode((width, height))
+    surface = pygame.display.set_mode((width, height), pygame.RESIZABLE)
     pygame.display.set_caption("Chess GUI")
 
     renderer = BoardRenderer(

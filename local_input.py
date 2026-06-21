@@ -79,6 +79,8 @@ class InputResult:
 
     quit_requested: bool = False
     square_clicked: Optional[chess.Square] = None
+    window_resized: bool = False
+    window_size: Optional[tuple[int, int]] = None
 
 
 @dataclass
@@ -223,6 +225,21 @@ class BoardGeometry:
         """
         self.white_at_bottom = white_at_bottom
 
+    def resize_to_window(
+        self,
+        window_width: int,
+        window_height: int,
+        margin: int = 20,
+        ) -> None:
+        available_width = window_width - 2 * margin
+        available_height = window_height - 2 * margin
+
+        board_size = min(available_width, available_height)
+        self.square_size = max(1, board_size // 8)
+
+        self.board_left = (window_width - self.board_size) // 2
+        self.board_top = (window_height - self.board_size) // 2     
+
 
 class LocalMouseInputAdapter:
     """
@@ -293,6 +310,8 @@ class LocalMouseInputAdapter:
 
         quit_requested = False
         square_clicked: Optional[chess.Square] = None
+        window_resized = False
+        window_size = None
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -311,9 +330,17 @@ class LocalMouseInputAdapter:
                 square_clicked = square
                 self.controller.handle_square_click(square)
 
+            if event.type == pygame.VIDEORESIZE:
+                window_resized = True
+                window_size = event.size
+                continue
+
         return InputResult(
             quit_requested=quit_requested,
             square_clicked=square_clicked,
+            window_resized=window_resized,
+            window_size=window_size,
+
         )
 
     def handle_click_position(self, pos: tuple[int, int]) -> Optional[chess.Square]:
