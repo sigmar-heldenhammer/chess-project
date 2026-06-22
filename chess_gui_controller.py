@@ -79,6 +79,7 @@ class UIState:
 
     selected_square: Optional[chess.Square] = None
     legal_targets: tuple[chess.Square, ...] = field(default_factory=tuple)
+    legal_captures: tuple[chess.Square, ...] = field(default_factory=tuple)
     pending_move: Optional[chess.Move] = None
     message: Optional[str] = None
 
@@ -299,13 +300,18 @@ class ChessGUIController:
             so it cannot become stale after board changes.
         """
         legal_targets: tuple[chess.Square, ...] = tuple()
+        legal_captures: tuple[chess.Square, ...] = tuple()
+
 
         if self.board is not None and self.selected_square is not None:
             legal_targets = tuple(self._legal_targets_from(self.selected_square))
+            legal_captures = tuple(self._legal_captures_from(self.selected_square))
+
 
         return UIState(
             selected_square=self.selected_square,
             legal_targets=legal_targets,
+            legal_captures=legal_captures,
             pending_move=self.pending_move,
             message=self.message,
         )
@@ -342,6 +348,17 @@ class ChessGUIController:
             move.to_square
             for move in board.legal_moves
             if move.from_square == square
+        ]
+
+    def _legal_captures_from(self, square: chess.Square) -> list[chess.Square]:
+        self._require_board()
+        board = self.board
+        assert board is not None
+
+        return [
+            move.to_square
+            for move in board.legal_moves
+            if move.from_square == square and board.is_capture(move)
         ]
 
     def _candidate_moves(

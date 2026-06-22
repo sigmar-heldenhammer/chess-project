@@ -283,12 +283,32 @@ class BoardRenderer:
 
     def draw_legal_targets(self, view_model: BoardViewModel) -> None:
         pygame = self._pygame
-        radius = max(5, self.geometry.square_size // 8)
+
+        dot_radius = max(5, self.geometry.square_size // 6)
+        capture_radius = int(self.geometry.square_size * 0.42)
+        capture_width = max(5, self.geometry.square_size // 9)
+
+        legal_captures = set(view_model.legal_captures)
 
         for square_name in view_model.legal_targets:
             square = chess.parse_square(square_name)
             center = self.geometry.center_pixel_from_square(square)
-            pygame.draw.circle(self.surface, self.colors.legal_target, center, radius)
+
+            if square_name in legal_captures:
+                pygame.draw.circle(
+                    self.surface,
+                    self.colors.legal_target,
+                    center,
+                    capture_radius,
+                    width=capture_width,
+                )
+            else:
+                pygame.draw.circle(
+                    self.surface,
+                    self.colors.legal_target,
+                    center,
+                    dot_radius,
+                )
 
     def draw_pieces(self, pieces: tuple[PieceView, ...]) -> None:
         for piece in pieces:

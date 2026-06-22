@@ -108,6 +108,7 @@ class BoardViewModel:
 
     selected_square: Optional[str] = None
     legal_targets: tuple[str, ...] = field(default_factory=tuple)
+    legal_captures: tuple[str, ...] = field(default_factory=tuple)
     last_move: Optional[str] = None
     last_move_from: Optional[str] = None
     last_move_to: Optional[str] = None
@@ -134,6 +135,7 @@ class BoardViewModel:
             "pieces": [piece.to_dict() for piece in self.pieces],
             "selected_square": self.selected_square,
             "legal_targets": list(self.legal_targets),
+            "legal_captures": list(self.legal_captures),
             "last_move": self.last_move,
             "last_move_from": self.last_move_from,
             "last_move_to": self.last_move_to,
@@ -198,11 +200,13 @@ class ViewModelBuilder:
 
         selected_square = None
         legal_targets: tuple[str, ...] = tuple()
+        legal_captures: tuple[str, ...] = tuple()
         ui_message = None
 
         if ui_state is not None:
             selected_square = self._square_name_or_none(ui_state.selected_square)
             legal_targets = tuple(chess.square_name(sq) for sq in ui_state.legal_targets)
+            legal_captures = tuple(chess.square_name(sq) for sq in ui_state.legal_captures)
             ui_message = ui_state.message
 
         last_move_uci = last_move.uci() if last_move is not None else None
@@ -222,6 +226,7 @@ class ViewModelBuilder:
             pieces=pieces,
             selected_square=selected_square,
             legal_targets=legal_targets,
+            legal_captures=legal_captures,
             last_move=last_move_uci,
             last_move_from=last_move_from,
             last_move_to=last_move_to,
