@@ -80,9 +80,21 @@ class UIState:
     selected_square: Optional[chess.Square] = None
     legal_targets: tuple[chess.Square, ...] = field(default_factory=tuple)
     legal_captures: tuple[chess.Square, ...] = field(default_factory=tuple)
+    promotion_request: Optional[PromotionRequest] = None
     pending_move: Optional[chess.Move] = None
     message: Optional[str] = None
 
+
+@dataclass(frozen=True)
+class PromotionRequest:
+    from_square: chess.Square
+    to_square: chess.Square
+    options: tuple[chess.PieceType, ...] = (
+        chess.QUEEN,
+        chess.ROOK,
+        chess.BISHOP,
+        chess.KNIGHT,
+    )
 
 class ChessGUIController:
     """
@@ -104,6 +116,7 @@ class ChessGUIController:
 
         self.selected_square: Optional[chess.Square] = None
         self.pending_move: Optional[chess.Move] = None
+        self.promotion_request: Optional[PromotionRequest] = None
         self.message: Optional[str] = None
 
     # ---------------------------------------------------------------------
@@ -244,6 +257,15 @@ class ChessGUIController:
             self.message = "No source square selected."
             return False
 
+        if self._is_promotion_attempt(self.selected_square, target_square):
+            self.promotion_request = PromotionRequest(
+                from_square=self.selected_square,
+                to_square=target_square,
+            )
+            self.clear_selection()
+            self.message = "Choose promotion piece."
+            return False
+
         candidate_moves = self._candidate_moves(
             from_square=self.selected_square,
             to_square=target_square,
@@ -259,6 +281,34 @@ class ChessGUIController:
         self.clear_selection()
         self.message = "Illegal move."
         return False
+
+    def handle_promotion_choice(self, piece_type: chess.PieceType) -> bool:
+        self._require_board()
+        board = self.board
+        assert board is not None
+
+        if self.promotion_request is None:
+            return False
+
+        move = chess.Move(
+            self.promotion_request.from_square,
+            self.promotion_request.to_square,
+            promotion=piece_type,
+        )
+
+        if move in board.legal_moves:
+            self.pending_move = move
+            self.promotion_request = None
+            self.message = f"Promotion selected: {move.uci()}"
+            return True
+
+        self.message = "Invalid promotion choice."
+        return False
+
+    def cancel_promotion_request(self) -> None:
+        self.promotion_request = None
+        self.clear_selection()
+        self.message = "Promotion cancelled."
 
     def pop_pending_move(self) -> Optional[chess.Move]:
         """
@@ -277,6 +327,8 @@ class ChessGUIController:
         move = self.pending_move
         self.pending_move = None
         return move
+
+    
 
     # ---------------------------------------------------------------------
     # State exposed to view model builder
@@ -312,6 +364,7 @@ class ChessGUIController:
             selected_square=self.selected_square,
             legal_targets=legal_targets,
             legal_captures=legal_captures,
+            promotion_request=self.promotion_request,
             pending_move=self.pending_move,
             message=self.message,
         )
@@ -331,6 +384,9 @@ class ChessGUIController:
 
         if not keep_message:
             self.message = None
+
+    def clear_promotion_request(self) -> None:
+        self.promotion_request = None
 
     # ---------------------------------------------------------------------
     # Internal helpers

@@ -51,6 +51,7 @@ class UIStateProtocol(Protocol):
     selected_square: Optional[chess.Square]
     legal_targets: tuple[chess.Square, ...]
     pending_move: Optional[chess.Move]
+    promotion_request: Optional[PromotionRequestProtocol]
     message: Optional[str]
 
 
@@ -94,6 +95,17 @@ class PieceView:
 
 
 @dataclass(frozen=True)
+class PromotionOptionView:
+    piece_type: str
+    piece_type_id: int
+
+@dataclass(frozen=True)
+class PromotionRequestView:
+    from_square: str
+    to_square: str
+    options: tuple[PromotionOptionView, ...]
+
+@dataclass(frozen=True)
 class BoardViewModel:
     """
     Complete renderer-facing state for the board.
@@ -119,6 +131,8 @@ class BoardViewModel:
     is_stalemate: bool = False
     is_game_over: bool = False
     result: Optional[str] = None
+
+    promotion_request: Optional[PromotionRequestView] = None
 
     message: Optional[str] = None
 
@@ -146,8 +160,28 @@ class BoardViewModel:
             "is_game_over": self.is_game_over,
             "result": self.result,
             "message": self.message,
+            "promotion_request": (
+                None
+                if self.promotion_request is None
+                else {
+                    "from_square": self.promotion_request.from_square,
+                    "to_square": self.promotion_request.to_square,
+                    "options": [
+                        {
+                            "piece_type": option.piece_type,
+                            "piece_type_id": option.piece_type_id,
+                        }
+                        for option in self.promotion_request.options
+                    ],
+                }
+            ),
         }
 
+
+class PromotionRequestProtocol(Protocol):
+    from_square: chess.Square
+    to_square: chess.Square
+    options: tuple[chess.PieceType, ...]
 
 class ViewModelBuilder:
     """
@@ -165,6 +199,25 @@ class ViewModelBuilder:
         chess.QUEEN: "queen",
         chess.KING: "king",
     }
+
+    def _build_promotion_request_view(
+        self,
+        promotion_request: Optional[PromotionRequestProtocol],
+    ) -> Optional[PromotionRequestView]:
+        if promotion_request is None:
+            return None
+
+        return PromotionRequestView(
+            from_square=chess.square_name(promotion_request.from_square),
+            to_square=chess.square_name(promotion_request.to_square),
+            options=tuple(
+                PromotionOptionView(
+                    piece_type=self.PIECE_TYPE_NAMES[piece_type],
+                    piece_type_id=piece_type,
+                )
+                for piece_type in promotion_request.options
+            ),
+    )
 
     def build(
         self,
@@ -202,12 +255,16 @@ class ViewModelBuilder:
         legal_targets: tuple[str, ...] = tuple()
         legal_captures: tuple[str, ...] = tuple()
         ui_message = None
+        promotion_request = None
 
         if ui_state is not None:
             selected_square = self._square_name_or_none(ui_state.selected_square)
             legal_targets = tuple(chess.square_name(sq) for sq in ui_state.legal_targets)
             legal_captures = tuple(chess.square_name(sq) for sq in ui_state.legal_captures)
             ui_message = ui_state.message
+            promotion_request = self._build_promotion_request_view(
+                ui_state.promotion_request
+            )
 
         last_move_uci = last_move.uci() if last_move is not None else None
         last_move_from = (
@@ -227,6 +284,7 @@ class ViewModelBuilder:
             selected_square=selected_square,
             legal_targets=legal_targets,
             legal_captures=legal_captures,
+            promotion_request=promotion_request,
             last_move=last_move_uci,
             last_move_from=last_move_from,
             last_move_to=last_move_to,

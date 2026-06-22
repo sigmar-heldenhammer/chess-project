@@ -61,6 +61,9 @@ class SquareClickController(Protocol):
 
     def handle_square_click(self, square: chess.Square) -> None:
         ...
+    
+    def handle_promotion_choice(self, piece_type: chess.PieceType) -> bool:
+        ...
 
 
 @dataclass(frozen=True)
@@ -82,7 +85,44 @@ class InputResult:
     window_resized: bool = False
     window_size: Optional[tuple[int, int]] = None
 
+@dataclass
+class PromotionMenuGeometry:
+    board_geometry: BoardGeometry
+    option_size: int = 64
 
+    def option_from_pixel(
+        self,
+        pos: tuple[int, int],
+        promotion_request,
+    ) -> Optional[chess.PieceType | str]:
+        if promotion_request is None:
+            return None
+
+        x, y = pos
+        menu_left, menu_top = self.menu_origin(promotion_request.to_square)
+
+        options = list(promotion_request.options) + ["cancel"]
+
+        for index, option in enumerate(options):
+            rect_left = menu_left
+            rect_top = menu_top + index * self.option_size
+
+            if (
+                rect_left <= x < rect_left + self.option_size
+                and rect_top <= y < rect_top + self.option_size
+            ):
+                if option == "cancel":
+                    return "cancel"
+                return option.piece_type_id
+
+        return None
+
+    def menu_origin(self, to_square: str) -> tuple[int, int]:
+        square = chess.parse_square(to_square)
+        x, y = self.board_geometry.pixel_from_square(square)
+        return x, y
+
+        
 @dataclass
 class BoardGeometry:
     """
@@ -264,6 +304,8 @@ class LocalMouseInputAdapter:
         self,
         controller: SquareClickController,
         geometry: BoardGeometry,
+        promotion_menu_geometry: Optional[PromotionMenuGeometry] = None,
+        get_view_model: Optional[Callable[[], BoardViewModel]] = None,
         *,
         left_click_only: bool = True,
     ):
@@ -284,6 +326,9 @@ class LocalMouseInputAdapter:
         self.controller = controller
         self.geometry = geometry
         self.left_click_only = left_click_only
+        self.promotion_menu_geometry = promotion_menu_geometry
+        self.get_view_model = get_view_model
+        
 
     def handle_events(self) -> InputResult:
         """
@@ -319,16 +364,17 @@ class LocalMouseInputAdapter:
                 continue
 
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if self.left_click_only and event.button != 1:
+                promotion_active = False
+
+                if self.get_view_model is not None:
+                    view_model = self.get_view_model()
+                    promotion_active = view_model.promotion_request is not None
+
+                if self.left_click_only and event.button != 1 and not promotion_active:
                     continue
 
-                square = self.geometry.square_from_pixel(event.pos)
-
-                if square is None:
-                    continue
-
-                square_clicked = square
-                self.controller.handle_square_click(square)
+                square_clicked = self.handle_click_position(event.pos)
+                # self.controller.handle_square_click(square_clicked)
 
             if event.type == pygame.VIDEORESIZE:
                 window_resized = True
@@ -344,22 +390,27 @@ class LocalMouseInputAdapter:
         )
 
     def handle_click_position(self, pos: tuple[int, int]) -> Optional[chess.Square]:
-        """
-        Directly handle a local click position.
+        if self.promotion_menu_geometry is not None and self.get_view_model is not None:
+            view_model = self.get_view_model()
 
-        Inputs:
-            pos:
-                Pixel coordinate as (x, y).
+            if view_model.promotion_request is not None:
+                piece_type = self.promotion_menu_geometry.option_from_pixel(
+                    pos,
+                    view_model.promotion_request,
+                )
 
-        Outputs:
-            chess.Square | None:
-                Square clicked, or None if outside the board.
+                if piece_type == "cancel":
+                    self.controller.cancel_promotion_request()
+                    return None
 
-        Why this exists:
-            - Unit tests can call this without pygame.
-            - Other local GUI frameworks can reuse the geometry/controller
-              bridge even if they do not use pygame's event queue.
-        """
+                if piece_type is not None:
+                    self.controller.handle_promotion_choice(piece_type)
+                    return None
+
+                # Clicked outside promotion menu: dismiss it.
+                self.controller.cancel_promotion_request()
+                return None
+
         square = self.geometry.square_from_pixel(pos)
 
         if square is None:

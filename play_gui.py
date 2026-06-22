@@ -74,7 +74,7 @@ from board_renderer import BoardRenderer, create_pygame_board_window
 from chess_gui_controller import ChessGUIController
 from game_session import GameSession
 from human_gui_agent import HumanGUIAgent, HumanGUIQuitRequested
-from local_input import BoardGeometry, LocalMouseInputAdapter
+from local_input import BoardGeometry, LocalMouseInputAdapter, PromotionMenuGeometry
 from view_model import ViewModelBuilder
 
 
@@ -172,11 +172,21 @@ class ChessGUIApp:
             white_at_bottom=self.config.white_at_bottom,
             show_coordinates=self.config.show_coordinates,
         )
+        
+        self.promotion_menu_geometry = PromotionMenuGeometry(
+            board_geometry=self.geometry,
+            option_size=self.geometry.square_size,
+        )
 
         self.input_adapter = LocalMouseInputAdapter(
             controller=self.controller,
             geometry=self.geometry,
+            promotion_menu_geometry=self.promotion_menu_geometry,
+            get_view_model=self.get_latest_view_model,
+
         )
+
+
 
         self._pygame = self._load_pygame()
         self.clock = self._pygame.time.Clock()
@@ -292,6 +302,7 @@ class ChessGUIApp:
         if input_result.window_resized and input_result.window_size is not None:
             width, height = input_result.window_size
             self.geometry.resize_to_window(width, height)
+            self.promotion_menu_geometry.option_size = self.geometry.square_size
             self.renderer.refresh_after_geometry_change()
 
         if input_result.quit_requested:
@@ -319,6 +330,14 @@ class ChessGUIApp:
             last_move=self.last_move,
         )
         self.renderer.draw(view_model)
+
+    def get_latest_view_model(self):
+        self._sync_current_board()
+        return self.view_model_builder.build_from_controller(
+            board=self.current_board,
+            controller=self.controller,
+            last_move=self.last_move,
+        )
 
     def should_quit(self) -> bool:
         """

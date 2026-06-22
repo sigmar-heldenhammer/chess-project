@@ -207,6 +207,7 @@ class BoardRenderer:
         self.draw_legal_targets(view_model)
 
         self.draw_pieces(view_model.pieces)
+        self.draw_promotion_menu(view_model)
 
         if self.show_coordinates:
             self.draw_coordinates()
@@ -252,6 +253,55 @@ class BoardRenderer:
                     self.geometry.square_size,
                 )
                 pygame.draw.rect(self.surface, color, rect)
+
+
+    def draw_promotion_menu(self, view_model: BoardViewModel) -> None:
+        if view_model.promotion_request is None:
+            return
+
+        pygame = self._pygame
+
+        square = chess.parse_square(view_model.promotion_request.to_square)
+        x, y = self.geometry.pixel_from_square(square)
+
+        option_size = self.geometry.square_size
+
+        color = (
+            "white"
+            if view_model.promotion_request.to_square[1] == "8"
+            else "black"
+        )
+
+        for index, option in enumerate(view_model.promotion_request.options):
+            rect = pygame.Rect(
+                x,
+                y + index * option_size,
+                option_size,
+                option_size,
+            )
+
+            pygame.draw.rect(self.surface, self.colors.background, rect)
+            pygame.draw.rect(self.surface, self.colors.border, rect, width=2)
+
+            image = self._piece_images.get(color, option.piece_type)
+            image_rect = image.get_rect(center=rect.center)
+            self.surface.blit(image, image_rect)
+
+        # Cancel option
+        cancel_index = len(view_model.promotion_request.options)
+        cancel_rect = pygame.Rect(
+            x,
+            y + cancel_index * option_size,
+            option_size,
+            option_size,
+        )
+
+        pygame.draw.rect(self.surface, self.colors.background, cancel_rect)
+        pygame.draw.rect(self.surface, self.colors.border, cancel_rect, width=2)
+
+        x_text = self._fallback_piece_font.render("X", True, self.colors.message_text)
+        x_rect = x_text.get_rect(center=cancel_rect.center)
+        self.surface.blit(x_text, x_rect)
 
     def refresh_after_geometry_change(self) -> None:
         piece_image_size = max(1, int(self.geometry.square_size * self.piece_scale))

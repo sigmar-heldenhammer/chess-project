@@ -1,0 +1,56 @@
+
+
+
+
+
+
+
+LocalMouseInputAdapter.handle_events()
+    ↓
+BoardGeometry.square_from_pixel()
+    ↓
+ChessGUIController.handle_square_click()
+    ↓
+ChessGUIController.pending_move
+    ↓
+HumanGUIAgent.select_move()
+    ↓
+play_game(...)
+    ↓
+GameSession.on_position_updated()
+    ↓
+ViewModelBuilder.build()
+    ↓
+BoardRenderer.draw()
+
+
+Functionality:
+
+
+concede button
+
+add pieces taken
+
+game result pop-up
+
+remove text messages
+
+low-res piece images
+
+lighten move option indicators
+
+app hangs while waiting for computer to select move, then keeps going
+
+pieces move instead of teleport
+
+
+
+Code cleaning:
+clean up promotion handling in chess_gui_controller's try_complete_move() function
+
+
+
+
+
+
+
