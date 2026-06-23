@@ -147,6 +147,7 @@ class BoardRenderer:
         image_dir: str | Path = "images",
         piece_scale: float = 0.88,
         allow_missing_piece_fallback: bool = True,
+        promotion_menu_geometry = None,
     ):
         """
         Inputs:
@@ -188,6 +189,7 @@ class BoardRenderer:
         self._coord_font = self._make_coord_font()
         self._message_font = self._make_message_font()
         self._fallback_piece_font = self._make_fallback_piece_font()
+        self.promotion_menu_geometry = promotion_menu_geometry
 
         piece_image_size = max(1, int(self.geometry.square_size * self.piece_scale))
         self._piece_images = PieceImageCache(
@@ -261,10 +263,13 @@ class BoardRenderer:
 
         pygame = self._pygame
 
-        square = chess.parse_square(view_model.promotion_request.to_square)
-        x, y = self.geometry.pixel_from_square(square)
-
-        option_size = self.geometry.square_size
+        if self.promotion_menu_geometry is not None:
+            x, y = self.promotion_menu_geometry.menu_origin(view_model.promotion_request)
+            option_size = self.promotion_menu_geometry.option_size
+        else:
+            square = chess.parse_square(view_model.promotion_request.to_square)
+            x, y = self.geometry.pixel_from_square(square)
+            option_size = self.geometry.square_size
 
         color = (
             "white"

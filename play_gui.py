@@ -104,7 +104,7 @@ class PlayerConfig:
 class ControlConfig:
     fps: int = 60
 
-    
+
 @dataclass
 class ChessGUIConfig:
     window: WindowConfig = field(default_factory=WindowConfig)
@@ -186,6 +186,8 @@ class ChessGUIApp:
             board_geometry=self.geometry,
             option_size=self.geometry.square_size,
         )
+
+        self.renderer.promotion_menu_geometry = self.promotion_menu_geometry
 
         self.input_adapter = LocalMouseInputAdapter(
             controller=self.controller,
@@ -473,7 +475,7 @@ def main() -> None:
     app = ChessGUIApp(
         config=ChessGUIConfig(
             display=DisplayConfig(
-                perspective=BoardPerspective.PLAYER_BOTTOM,
+                perspective=BoardPerspective.WHITE_BOTTOM,
             ),
             players=PlayerConfig(
                 human_color=chess.BLACK,

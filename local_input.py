@@ -89,6 +89,7 @@ class InputResult:
 class PromotionMenuGeometry:
     board_geometry: BoardGeometry
     option_size: int = 64
+    include_cancel: bool = True
 
     def option_from_pixel(
         self,
@@ -99,7 +100,7 @@ class PromotionMenuGeometry:
             return None
 
         x, y = pos
-        menu_left, menu_top = self.menu_origin(promotion_request.to_square)
+        menu_left, menu_top = self.menu_origin(promotion_request)
 
         options = list(promotion_request.options) + ["cancel"]
 
@@ -117,10 +118,27 @@ class PromotionMenuGeometry:
 
         return None
 
-    def menu_origin(self, to_square: str) -> tuple[int, int]:
-        square = chess.parse_square(to_square)
-        x, y = self.board_geometry.pixel_from_square(square)
-        return x, y
+    def option_count(self, promotion_request) -> int:
+        return len(promotion_request.options) + (1 if self.include_cancel else 0)
+
+    def menu_height(self, promotion_request) -> int:
+        return self.option_count(promotion_request) * self.option_size
+
+    def menu_origin(self, promotion_request) -> tuple[int, int]:
+        square = chess.parse_square(promotion_request.to_square)
+        square_x, square_y = self.board_geometry.pixel_from_square(square)
+
+        board_top = self.board_geometry.board_top
+        board_bottom = self.board_geometry.board_top + self.board_geometry.board_size
+        height = self.menu_height(promotion_request)
+
+        # Prefer extending downward when it fits.
+        if square_y + height <= board_bottom:
+            return square_x, square_y
+
+        # Otherwise extend upward, ending on the promotion square.
+        return square_x, square_y + self.option_size - height
+
 
         
 @dataclass
