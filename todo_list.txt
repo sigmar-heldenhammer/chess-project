@@ -26,6 +26,7 @@ BoardRenderer.draw()
 
 Functionality:
 
+player perspective; promotion menu from black top
 
 concede button
 

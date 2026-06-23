@@ -65,8 +65,9 @@ Important assumptions:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
+from enum import Enum
 
 import chess
 
@@ -77,35 +78,41 @@ from human_gui_agent import HumanGUIAgent, HumanGUIQuitRequested
 from local_input import BoardGeometry, LocalMouseInputAdapter, PromotionMenuGeometry
 from view_model import ViewModelBuilder
 
+class BoardPerspective(Enum):
+    WHITE_BOTTOM = "white_bottom"
+    PLAYER_BOTTOM = "player_bottom"
 
 @dataclass
-class ChessGUIAppConfig:
-    """
-    Configuration for the first local GUI.
-
-    square_size:
-        Pixel size of each square.
-
-    board_left / board_top:
-        Pixel offset of the board inside the window.
-
-    white_at_bottom:
-        Initial orientation.
-
-    show_coordinates:
-        Whether to draw file/rank coordinates.
-        Defaults to False for the minimal first version.
-
-    fps:
-        Maximum pump/redraw frequency during human input.
-    """
-
+class WindowConfig:
     square_size: int = 80
     board_left: int = 20
     board_top: int = 20
-    white_at_bottom: bool = True
+
+
+@dataclass
+class DisplayConfig:
+    perspective: BoardPerspective = BoardPerspective.WHITE_BOTTOM
     show_coordinates: bool = False
+
+
+@dataclass
+class PlayerConfig:
+    human_color: chess.Color = chess.WHITE
+
+
+@dataclass
+class ControlConfig:
     fps: int = 60
+
+    
+@dataclass
+class ChessGUIConfig:
+    window: WindowConfig = field(default_factory=WindowConfig)
+    display: DisplayConfig = field(default_factory=DisplayConfig)
+    players: PlayerConfig = field(default_factory=PlayerConfig)
+    controls: ControlConfig = field(default_factory=ControlConfig)
+
+
 
 
 class ChessGUIApp:
@@ -166,12 +173,14 @@ class ChessGUIApp:
         # pygame/window/renderer/input are initialized together so they share
         # one BoardGeometry instance.
         self.surface, self.geometry, self.renderer = create_pygame_board_window(
-            board_left=self.config.board_left,
-            board_top=self.config.board_top,
-            square_size=self.config.square_size,
-            white_at_bottom=self.config.white_at_bottom,
-            show_coordinates=self.config.show_coordinates,
+            board_left=self.config.window.board_left,
+            board_top=self.config.window.board_top,
+            square_size=self.config.window.square_size,
+            white_at_bottom=True,
+            show_coordinates=self.config.display.show_coordinates,
         )
+
+        self.apply_board_perspective()
         
         self.promotion_menu_geometry = PromotionMenuGeometry(
             board_geometry=self.geometry,
@@ -213,13 +222,13 @@ class ChessGUIApp:
         self.white = (
             white_agent_factory()
             if white_agent_factory is not None
-            else self.human_agent
+            else self._default_black_agent()
         )
 
         self.black = (
             black_agent_factory()
             if black_agent_factory is not None
-            else self._default_black_agent()
+            else self.human_agent
         )
 
         self.session = GameSession(
@@ -312,7 +321,7 @@ class ChessGUIApp:
         self._sync_current_board()
         self.render_current_position()
 
-        self.clock.tick(self.config.fps)
+        self.clock.tick(self.config.controls.fps)
 
     def render_current_position(self) -> None:
         """
@@ -437,6 +446,23 @@ class ChessGUIApp:
 
         return pygame
 
+    # ------------------------------------------------------------------
+    # Initialization
+    # ------------------------------------------------------------------
+
+    def apply_board_perspective(self) -> None:
+        perspective = self.config.display.perspective
+        human_color = self.config.players.human_color
+
+        if perspective == BoardPerspective.WHITE_BOTTOM:
+            self.geometry.set_orientation(True)
+
+        elif perspective == BoardPerspective.PLAYER_BOTTOM:
+            self.geometry.set_orientation(human_color == chess.WHITE)
+
+        else:
+            raise ValueError(f"Unknown board perspective: {perspective}")
+
 
 def main() -> None:
     """
@@ -444,7 +470,16 @@ def main() -> None:
 
     Human plays White against the default qsearch agent as Black.
     """
-    app = ChessGUIApp()
+    app = ChessGUIApp(
+        config=ChessGUIConfig(
+            display=DisplayConfig(
+                perspective=BoardPerspective.PLAYER_BOTTOM,
+            ),
+            players=PlayerConfig(
+                human_color=chess.BLACK,
+            ),
+        )
+    )
     app.run()
 
 
