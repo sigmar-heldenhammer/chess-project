@@ -224,13 +224,13 @@ class ChessGUIApp:
         self.white = (
             white_agent_factory()
             if white_agent_factory is not None
-            else self._default_black_agent()
+            else self.human_agent
         )
 
         self.black = (
             black_agent_factory()
             if black_agent_factory is not None
-            else self.human_agent
+            else self._default_black_agent()
         )
 
         self.session = GameSession(
@@ -475,10 +475,10 @@ def main() -> None:
     app = ChessGUIApp(
         config=ChessGUIConfig(
             display=DisplayConfig(
-                perspective=BoardPerspective.WHITE_BOTTOM,
+                perspective=BoardPerspective.PLAYER_BOTTOM,
             ),
             players=PlayerConfig(
-                human_color=chess.BLACK,
+                human_color=chess.WHITE,
             ),
         )
     )

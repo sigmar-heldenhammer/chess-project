@@ -30,6 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+from io import BytesIO
 
 import chess
 
@@ -76,23 +77,42 @@ class PieceImageCache:
         self._cache: dict[tuple[str, str, int], object] = {}
 
     def get(self, color: str, piece_type: str):
-        """
-        Return a scaled pygame Surface for a piece.
-
-        Raises FileNotFoundError if no matching image exists.
-        """
         key = (color, piece_type, self.target_size)
 
         if key not in self._cache:
             path = self._find_image_path(color, piece_type)
-            image = self.pygame.image.load(str(path)).convert_alpha()
-            image = self.pygame.transform.smoothscale(
-                image,
-                (self.target_size, self.target_size),
-            )
+
+            if path.suffix.lower() == ".svg":
+                image = self._load_svg_at_target_size(path)
+            else:
+                image = self.pygame.image.load(str(path)).convert_alpha()
+                image = self.pygame.transform.smoothscale(
+                    image,
+                    (self.target_size, self.target_size),
+                )
+
             self._cache[key] = image
 
         return self._cache[key]
+
+    def _load_svg_at_target_size(self, path: Path):
+        try:
+            import cairosvg
+        except ImportError as exc:
+            raise RuntimeError(
+                "SVG piece rendering requires CairoSVG. Install it with:\n"
+                "    pip install cairosvg\n"
+                "or:\n"
+                "    conda install -c conda-forge cairosvg"
+            ) from exc
+
+        png_bytes = cairosvg.svg2png(
+            url=str(path),
+            output_width=self.target_size,
+            output_height=self.target_size,
+        )
+
+        return self.pygame.image.load(BytesIO(png_bytes), "png").convert_alpha()
 
     def _find_image_path(self, color: str, piece_type: str) -> Path:
         base = f"{color}-{piece_type}"
