@@ -46,7 +46,6 @@ class RendererColors:
     dark_square: tuple[int, int, int] = (118, 150, 86)
 
     selected: tuple[int, int, int] = (246, 246, 105)
-    legal_target: tuple[int, int, int] = (190, 190, 190)
     legal_target_darkening_factor: float = 0.70
     last_move: tuple[int, int, int] = (186, 202, 68)
     check: tuple[int, int, int] = (220, 70, 70)
@@ -54,7 +53,6 @@ class RendererColors:
     background: tuple[int, int, int] = (48, 48, 48)
     border: tuple[int, int, int] = (10, 10, 10)
     promotion_menu_background: tuple[int, int, int] = (245, 245, 245)
-    message_text: tuple[int, int, int] = (230, 230, 230)
     fallback_piece_text: tuple[int, int, int] = (20, 20, 20)
     player_text: tuple[int, int, int] = (235, 235, 235)
     material_advantage: tuple[int, int, int] = (245, 245, 245)
@@ -690,15 +688,6 @@ class BoardRenderer:
                 and chess.square_file(square) == 7
             ):
                 self._draw_small_text(rank_char, x + 4, y + 2)
-
-    def draw_message(self, message: Optional[str]) -> None:
-        if not message:
-            return
-
-        text_surface = self._player_font.render(message, True, self.colors.message_text)
-        x = self.geometry.board_left
-        y = self.geometry.board_top + self.geometry.board_size + 12
-        self.surface.blit(text_surface, (x, y))
 
     def present(self) -> None:
         self._pygame.display.flip()

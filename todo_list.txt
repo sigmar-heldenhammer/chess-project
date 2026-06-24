@@ -31,6 +31,8 @@ Functionality:
 
 concede button
 
+move log
+
 game result pop-up
 
 app hangs while waiting for computer to select move, then keeps going
