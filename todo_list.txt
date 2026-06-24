@@ -33,10 +33,6 @@ concede button
 
 game result pop-up
 
-change promotion menu color to white
-
-lighten move option indicators
-
 app hangs while waiting for computer to select move, then keeps going
 
 pieces move instead of teleport
@@ -49,6 +45,4 @@ pieces do not overlap within groups
 
 Code cleaning:
 clean up promotion handling in chess_gui_controller's try_complete_move() function
-
-
 

@@ -1,0 +1,12 @@
+[Event "Self-Play"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "HumanGUI"]
+[Black "<template_agent.core.ModularMinimaxAgent object at 0x000001F6F4E5FA10>"]
+[Result "1-0"]
+[TimeControl "-"]
+[Termination "checkmate"]
+
+1. g4 f6 2. g5 fxg5 3. f4 gxf4 4. Nf3 b6 5. Ng5 a5 6. Nf7 Kxf7 7. Bh3 e5 8. Bxd7 Qxd7 9. Rf1 g6 10. Rxf4+ exf4 11. e4 fxe3 12. dxe3 Qxd1+ 13. Kxd1 Bg4+ 14. Ke1 Bb4+ 15. Kf1 Bh3+ 16. Kg1 Kf6 17. Bd2 Bxd2 18. Nxd2 Bd7 19. Rf1+ Bf5 20. Ne4+ Ke6 21. Ng5+ Kd5 22. Nf7 Bxc2 23. Nxh8 Bd3 24. Rf8 Ra7 25. Rxb8 Nf6 26. Rd8+ Nd7 27. Rxd7+ Ke6 28. Rxd3 a4 29. Ra3 c5 30. b3 Ra8 31. Rxa4 Rxh8 32. Ra6 h5 33. Rxb6+ Kd5 34. Rxg6 Ra8 35. a4 h4 36. Rg4 h3 37. Rh4 Rg8+ 38. Kf1 Rf8+ 39. Ke2 Rf6 40. Rxh3 Kd6 41. Rh4 Ke6 42. b4 cxb4 43. Rxb4 Rf4 44. Rxf4 Kd6 45. h4 Ke6 46. h5 Kd5 47. h6 Kc5 48. h7 Kd6 49. h8=R Kc5 50. Rh5+ Kd6 51. Rg4 Kc6 52. Rg6+ Kb7 53. Rh7+ Kc8 54. Rg8# 1-0
+

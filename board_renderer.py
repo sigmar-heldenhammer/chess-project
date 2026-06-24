@@ -46,16 +46,18 @@ class RendererColors:
     dark_square: tuple[int, int, int] = (118, 150, 86)
 
     selected: tuple[int, int, int] = (246, 246, 105)
-    legal_target: tuple[int, int, int] = (80, 80, 80)
+    legal_target: tuple[int, int, int] = (190, 190, 190)
+    legal_target_darkening_factor: float = 0.70
     last_move: tuple[int, int, int] = (186, 202, 68)
     check: tuple[int, int, int] = (220, 70, 70)
 
-    background: tuple[int, int, int] = (30, 30, 30)
+    background: tuple[int, int, int] = (48, 48, 48)
     border: tuple[int, int, int] = (10, 10, 10)
+    promotion_menu_background: tuple[int, int, int] = (245, 245, 245)
     message_text: tuple[int, int, int] = (230, 230, 230)
     fallback_piece_text: tuple[int, int, int] = (20, 20, 20)
     player_text: tuple[int, int, int] = (235, 235, 235)
-    material_advantage: tuple[int, int, int] = (180, 225, 140)
+    material_advantage: tuple[int, int, int] = (245, 245, 245)
 
 
 class PieceImageCache:
@@ -314,7 +316,7 @@ class BoardRenderer:
                 option_size,
             )
 
-            pygame.draw.rect(self.surface, self.colors.background, rect)
+            pygame.draw.rect(self.surface, self.colors.promotion_menu_background, rect)
             pygame.draw.rect(self.surface, self.colors.border, rect, width=2)
 
             image = self._piece_images.get(color, option.piece_type)
@@ -330,10 +332,14 @@ class BoardRenderer:
             option_size,
         )
 
-        pygame.draw.rect(self.surface, self.colors.background, cancel_rect)
+        pygame.draw.rect(
+            self.surface,
+            self.colors.promotion_menu_background,
+            cancel_rect,
+        )
         pygame.draw.rect(self.surface, self.colors.border, cancel_rect, width=2)
 
-        x_text = self._fallback_piece_font.render("X", True, self.colors.message_text)
+        x_text = self._fallback_piece_font.render("X", True, self.colors.fallback_piece_text)
         x_rect = x_text.get_rect(center=cancel_rect.center)
         self.surface.blit(x_text, x_rect)
 
@@ -615,11 +621,12 @@ class BoardRenderer:
         for square_name in view_model.legal_targets:
             square = chess.parse_square(square_name)
             center = self.geometry.center_pixel_from_square(square)
+            indicator_color = self._darkened_surface_color_at(center)
 
             if square_name in legal_captures:
                 pygame.draw.circle(
                     self.surface,
-                    self.colors.legal_target,
+                    indicator_color,
                     center,
                     capture_radius,
                     width=capture_width,
@@ -627,7 +634,7 @@ class BoardRenderer:
             else:
                 pygame.draw.circle(
                     self.surface,
-                    self.colors.legal_target,
+                    indicator_color,
                     center,
                     dot_radius,
                 )
@@ -716,6 +723,16 @@ class BoardRenderer:
     def _draw_small_text(self, text: str, x: int, y: int) -> None:
         surface = self._coord_font.render(text, True, self.colors.border)
         self.surface.blit(surface, (x, y))
+
+    def _darkened_surface_color_at(self, pos: tuple[int, int]) -> tuple[int, int, int]:
+        sampled = self.surface.get_at(pos)
+        factor = self.colors.legal_target_darkening_factor
+
+        return (
+            max(0, min(255, int(sampled.r * factor))),
+            max(0, min(255, int(sampled.g * factor))),
+            max(0, min(255, int(sampled.b * factor))),
+        )
 
     def _draw_missing_piece_fallback(
         self,
