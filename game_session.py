@@ -107,6 +107,8 @@ class GameSession:
         time_control=None,
         pgn_out: Optional[TextIO] = None,
         initial_board: Optional[chess.Board] = None,
+        white_display_name: Optional[str] = None,
+        black_display_name: Optional[str] = None,
     ):
         """
         Inputs:
@@ -141,6 +143,8 @@ class GameSession:
         self.view_model_builder = view_model_builder or ViewModelBuilder()
         self.time_control = time_control
         self.pgn_out = pgn_out
+        self.white_display_name = white_display_name or str(white)
+        self.black_display_name = black_display_name or str(black)
 
         self.board: chess.Board = initial_board if initial_board is not None else chess.Board()
         self.last_move: Optional[chess.Move] = None
@@ -168,6 +172,8 @@ class GameSession:
         return play_game(
             white=self.white,
             black=self.black,
+            white_name=self.white_display_name,
+            black_name=self.black_display_name,
             time_control=self.time_control,
             on_update=self.on_position_updated,
             pgn_out=self.pgn_out,
@@ -259,10 +265,14 @@ class GameSession:
                 board=self.board,
                 controller=self.controller,
                 last_move=self.last_move,
+                white_display_name=self.white_display_name,
+                black_display_name=self.black_display_name,
             )
 
         return self.view_model_builder.build(
             board=self.board,
             ui_state=None,
             last_move=self.last_move,
+            white_display_name=self.white_display_name,
+            black_display_name=self.black_display_name,
         )

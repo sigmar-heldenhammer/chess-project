@@ -31,11 +31,7 @@ Functionality:
 
 concede button
 
-add pieces taken
-
 game result pop-up
-
-remove text messages
 
 change promotion menu color to white
 
@@ -47,17 +43,12 @@ pieces move instead of teleport
 
 
 
+spaces between groups too large
+pieces do not overlap within groups
+
+
 Code cleaning:
 clean up promotion handling in chess_gui_controller's try_complete_move() function
 
-
-
-play_gui.py has a pump_once() function that makes updates. This calls local_input.py's handle_events(), which tells it what the user has done.
-
-Inside handle_events() there's a check for a resize event, which pump_once() sees and in turn calls renderer.refresh_after_geometry_changes(). It looks like refresh_after_geometry_changes() does re-pull a new PieceImageCache, using a new piece_image size. 
-
-pygame version 2.6.1 is being used.
-
-After reviewing how all these pieces fit together, what is the most likely issue?
 
 

@@ -105,6 +105,47 @@ class PromotionRequestView:
     to_square: str
     options: tuple[PromotionOptionView, ...]
 
+
+@dataclass(frozen=True)
+class CapturedPieceView:
+    """
+    Renderer-friendly representation of a captured piece icon.
+
+    These icons are normally derived from capture events in board.move_stack.
+    They are intentionally display-only; material advantage is computed from
+    pieces still on the board so promotions are reflected correctly.
+    """
+
+    color: str
+    piece_type: str
+    symbol: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "color": self.color,
+            "piece_type": self.piece_type,
+            "symbol": self.symbol,
+        }
+
+
+@dataclass(frozen=True)
+class PlayerPanelView:
+    color: str
+    display_name: str
+    captured_pieces: tuple[CapturedPieceView, ...] = field(default_factory=tuple)
+    material_advantage: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "color": self.color,
+            "display_name": self.display_name,
+            "captured_pieces": [
+                captured_piece.to_dict()
+                for captured_piece in self.captured_pieces
+            ],
+            "material_advantage": self.material_advantage,
+        }
+
 @dataclass(frozen=True)
 class BoardViewModel:
     """
@@ -133,6 +174,18 @@ class BoardViewModel:
     result: Optional[str] = None
 
     promotion_request: Optional[PromotionRequestView] = None
+    white_panel: PlayerPanelView = field(
+        default_factory=lambda: PlayerPanelView(
+            color="white",
+            display_name="White",
+        )
+    )
+    black_panel: PlayerPanelView = field(
+        default_factory=lambda: PlayerPanelView(
+            color="black",
+            display_name="Black",
+        )
+    )
 
     message: Optional[str] = None
 
@@ -160,6 +213,8 @@ class BoardViewModel:
             "is_game_over": self.is_game_over,
             "result": self.result,
             "message": self.message,
+            "white_panel": self.white_panel.to_dict(),
+            "black_panel": self.black_panel.to_dict(),
             "promotion_request": (
                 None
                 if self.promotion_request is None
@@ -199,6 +254,39 @@ class ViewModelBuilder:
         chess.QUEEN: "queen",
         chess.KING: "king",
     }
+    PIECE_SYMBOLS = {
+        (chess.WHITE, chess.PAWN): "P",
+        (chess.WHITE, chess.KNIGHT): "N",
+        (chess.WHITE, chess.BISHOP): "B",
+        (chess.WHITE, chess.ROOK): "R",
+        (chess.WHITE, chess.QUEEN): "Q",
+        (chess.BLACK, chess.PAWN): "p",
+        (chess.BLACK, chess.KNIGHT): "n",
+        (chess.BLACK, chess.BISHOP): "b",
+        (chess.BLACK, chess.ROOK): "r",
+        (chess.BLACK, chess.QUEEN): "q",
+    }
+    STARTING_COUNTS = {
+        chess.PAWN: 8,
+        chess.KNIGHT: 2,
+        chess.BISHOP: 2,
+        chess.ROOK: 2,
+        chess.QUEEN: 1,
+    }
+    CAPTURE_DISPLAY_ORDER = (
+        chess.QUEEN,
+        chess.ROOK,
+        chess.BISHOP,
+        chess.KNIGHT,
+        chess.PAWN,
+    )
+    MATERIAL_VALUES = {
+        chess.PAWN: 1,
+        chess.KNIGHT: 3,
+        chess.BISHOP: 3,
+        chess.ROOK: 5,
+        chess.QUEEN: 9,
+    }
 
     def _build_promotion_request_view(
         self,
@@ -226,6 +314,8 @@ class ViewModelBuilder:
         *,
         last_move: Optional[chess.Move] = None,
         message: Optional[str] = None,
+        white_display_name: str = "White",
+        black_display_name: str = "Black",
     ) -> BoardViewModel:
         """
         Build a renderer-friendly view model.
@@ -275,6 +365,11 @@ class ViewModelBuilder:
         )
 
         check_square = self._get_check_square(board)
+        white_panel, black_panel = self._build_player_panels(
+            board=board,
+            white_display_name=white_display_name,
+            black_display_name=black_display_name,
+        )
 
         return BoardViewModel(
             fen=board.fen(),
@@ -294,6 +389,8 @@ class ViewModelBuilder:
             is_stalemate=board.is_stalemate(),
             is_game_over=board.is_game_over(),
             result=board.result() if board.is_game_over() else None,
+            white_panel=white_panel,
+            black_panel=black_panel,
             message=message if message is not None else ui_message,
         )
 
@@ -304,6 +401,8 @@ class ViewModelBuilder:
         *,
         last_move: Optional[chess.Move] = None,
         message: Optional[str] = None,
+        white_display_name: str = "White",
+        black_display_name: str = "Black",
     ) -> BoardViewModel:
         """
         Convenience wrapper around build(...).
@@ -329,6 +428,8 @@ class ViewModelBuilder:
             ui_state=controller.get_ui_state(),
             last_move=last_move,
             message=message,
+            white_display_name=white_display_name,
+            black_display_name=black_display_name,
         )
 
     def _build_piece_views(self, board: chess.Board) -> tuple[PieceView, ...]:
@@ -351,6 +452,150 @@ class ViewModelBuilder:
             )
 
         return tuple(pieces)
+
+    def _build_player_panels(
+        self,
+        *,
+        board: chess.Board,
+        white_display_name: str,
+        black_display_name: str,
+    ) -> tuple[PlayerPanelView, PlayerPanelView]:
+        white_material = self._material_on_board(board, chess.WHITE)
+        black_material = self._material_on_board(board, chess.BLACK)
+
+        white_panel = PlayerPanelView(
+            color="white",
+            display_name=white_display_name,
+            captured_pieces=self._captured_pieces_by_side(board, chess.WHITE),
+            material_advantage=max(0, white_material - black_material),
+        )
+        black_panel = PlayerPanelView(
+            color="black",
+            display_name=black_display_name,
+            captured_pieces=self._captured_pieces_by_side(board, chess.BLACK),
+            material_advantage=max(0, black_material - white_material),
+        )
+
+        return white_panel, black_panel
+
+    def _captured_pieces_by_side(
+        self,
+        board: chess.Board,
+        capturing_color: chess.Color,
+    ) -> tuple[CapturedPieceView, ...]:
+        captured_by_side = self._captured_pieces_from_move_stack(board)
+
+        if captured_by_side is not None:
+            return captured_by_side[capturing_color]
+
+        return self._captured_pieces_from_current_board(board, capturing_color)
+
+    def _captured_pieces_from_move_stack(
+        self,
+        board: chess.Board,
+    ) -> Optional[dict[chess.Color, tuple[CapturedPieceView, ...]]]:
+        move_stack = getattr(board, "move_stack", None)
+
+        if not move_stack:
+            return None
+
+        replay = chess.Board()
+        captured_by_side: dict[chess.Color, list[CapturedPieceView]] = {
+            chess.WHITE: [],
+            chess.BLACK: [],
+        }
+
+        try:
+            for move in move_stack:
+                capturing_color = replay.turn
+                captured_piece = self._captured_piece_before_move(replay, move)
+
+                if captured_piece is not None and captured_piece.piece_type != chess.KING:
+                    captured_by_side[capturing_color].append(
+                        CapturedPieceView(
+                            color=(
+                                "white"
+                                if captured_piece.color == chess.WHITE
+                                else "black"
+                            ),
+                            piece_type=self.PIECE_TYPE_NAMES[captured_piece.piece_type],
+                            symbol=captured_piece.symbol(),
+                        )
+                    )
+
+                replay.push(move)
+
+        except Exception:
+            return None
+
+        return {
+            chess.WHITE: self._sort_captured_pieces(captured_by_side[chess.WHITE]),
+            chess.BLACK: self._sort_captured_pieces(captured_by_side[chess.BLACK]),
+        }
+
+    def _captured_piece_before_move(
+        self,
+        board: chess.Board,
+        move: chess.Move,
+    ) -> Optional[chess.Piece]:
+        if board.is_en_passant(move):
+            captured_square = chess.square(
+                chess.square_file(move.to_square),
+                chess.square_rank(move.from_square),
+            )
+            return board.piece_at(captured_square)
+
+        return board.piece_at(move.to_square)
+
+    def _captured_pieces_from_current_board(
+        self,
+        board: chess.Board,
+        capturing_color: chess.Color,
+    ) -> tuple[CapturedPieceView, ...]:
+        captured_color = not capturing_color
+        captured_pieces: list[CapturedPieceView] = []
+
+        for piece_type in self.CAPTURE_DISPLAY_ORDER:
+            current_count = len(board.pieces(piece_type, captured_color))
+            missing_count = max(
+                0,
+                self.STARTING_COUNTS[piece_type] - current_count,
+            )
+
+            for _ in range(missing_count):
+                captured_pieces.append(
+                    CapturedPieceView(
+                        color="white" if captured_color == chess.WHITE else "black",
+                        piece_type=self.PIECE_TYPE_NAMES[piece_type],
+                        symbol=self.PIECE_SYMBOLS[(captured_color, piece_type)],
+                    )
+                )
+
+        return self._sort_captured_pieces(captured_pieces)
+
+    def _sort_captured_pieces(
+        self,
+        captured_pieces: list[CapturedPieceView],
+    ) -> tuple[CapturedPieceView, ...]:
+        order = {
+            self.PIECE_TYPE_NAMES[piece_type]: index
+            for index, piece_type in enumerate(self.CAPTURE_DISPLAY_ORDER)
+        }
+
+        return tuple(
+            sorted(
+                captured_pieces,
+                key=lambda captured_piece: order[captured_piece.piece_type],
+            )
+        )
+
+    def _material_on_board(self, board: chess.Board, color: chess.Color) -> int:
+        total = 0
+
+        for piece_type, value in self.MATERIAL_VALUES.items():
+            total += value * len(board.pieces(piece_type, color))
+
+        return total
 
     def _get_check_square(self, board: chess.Board) -> Optional[str]:
         """

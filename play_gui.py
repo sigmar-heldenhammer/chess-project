@@ -98,6 +98,8 @@ class DisplayConfig:
 @dataclass
 class PlayerConfig:
     human_color: chess.Color = chess.WHITE
+    white_display_name: Optional[str] = None
+    black_display_name: Optional[str] = None
 
 
 @dataclass
@@ -135,7 +137,7 @@ class ChessGUIApp:
         *,
         white_agent_factory=None,
         black_agent_factory=None,
-        config: Optional[ChessGUIAppConfig] = None,
+        config: Optional[ChessGUIConfig] = None,
         pgn_path: Optional[str] = "human_gui_game.pgn",
     ):
         """
@@ -154,7 +156,7 @@ class ChessGUIApp:
                 If None, defaults to make_qsearch_agent(depth=3, min_depth=-3).
 
             config:
-                Optional ChessGUIAppConfig.
+                Optional ChessGUIConfig.
 
             pgn_path:
                 File path for PGN output. Pass None to disable PGN output.
@@ -165,7 +167,7 @@ class ChessGUIApp:
         Important:
             The default setup is human as White vs engine as Black.
         """
-        self.config = config or ChessGUIAppConfig()
+        self.config = config or ChessGUIConfig()
 
         self.controller = ChessGUIController()
         self.view_model_builder = ViewModelBuilder()
@@ -233,6 +235,17 @@ class ChessGUIApp:
             else self._default_black_agent()
         )
 
+        self.white_display_name = (
+            self.config.players.white_display_name
+            if self.config.players.white_display_name is not None
+            else str(self.white)
+        )
+        self.black_display_name = (
+            self.config.players.black_display_name
+            if self.config.players.black_display_name is not None
+            else str(self.black)
+        )
+
         self.session = GameSession(
             white=self.white,
             black=self.black,
@@ -241,6 +254,8 @@ class ChessGUIApp:
             view_model_builder=self.view_model_builder,
             pgn_out=None,  # opened in run() so the handle can be closed safely
             initial_board=self.current_board,
+            white_display_name=self.white_display_name,
+            black_display_name=self.black_display_name,
         )
 
     # ------------------------------------------------------------------
@@ -312,9 +327,8 @@ class ChessGUIApp:
 
         if input_result.window_resized and input_result.window_size is not None:
             width, height = input_result.window_size
-            self.geometry.resize_to_window(width, height)
+            self.renderer.resize_to_window(width, height)
             self.promotion_menu_geometry.option_size = self.geometry.square_size
-            self.renderer.refresh_after_geometry_change()
 
         if input_result.quit_requested:
             self.quit_requested = True
@@ -339,6 +353,8 @@ class ChessGUIApp:
             board=self.current_board,
             controller=self.controller,
             last_move=self.last_move,
+            white_display_name=self.white_display_name,
+            black_display_name=self.black_display_name,
         )
         self.renderer.draw(view_model)
 
@@ -348,6 +364,8 @@ class ChessGUIApp:
             board=self.current_board,
             controller=self.controller,
             last_move=self.last_move,
+            white_display_name=self.white_display_name,
+            black_display_name=self.black_display_name,
         )
 
     def should_quit(self) -> bool:

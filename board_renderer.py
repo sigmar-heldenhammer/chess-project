@@ -35,7 +35,7 @@ from io import BytesIO
 import chess
 
 from local_input import BoardGeometry
-from view_model import BoardViewModel, PieceView
+from view_model import BoardViewModel, CapturedPieceView, PieceView, PlayerPanelView
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,8 @@ class RendererColors:
     border: tuple[int, int, int] = (10, 10, 10)
     message_text: tuple[int, int, int] = (230, 230, 230)
     fallback_piece_text: tuple[int, int, int] = (20, 20, 20)
+    player_text: tuple[int, int, int] = (235, 235, 235)
+    material_advantage: tuple[int, int, int] = (180, 225, 140)
 
 
 class PieceImageCache:
@@ -168,6 +170,7 @@ class BoardRenderer:
         piece_scale: float = 0.88,
         allow_missing_piece_fallback: bool = True,
         promotion_menu_geometry = None,
+        panel_height: int = 84,
     ):
         """
         Inputs:
@@ -204,23 +207,31 @@ class BoardRenderer:
         self.image_dir = self._resolve_image_dir(image_dir)
         self.piece_scale = piece_scale
         self.allow_missing_piece_fallback = allow_missing_piece_fallback
+        self.panel_height = panel_height
 
         self._pygame = self._load_pygame()
         self._coord_font = self._make_coord_font()
-        self._message_font = self._make_message_font()
+        self._player_font = self._make_player_font()
+        self._score_font = self._make_score_font()
         self._fallback_piece_font = self._make_fallback_piece_font()
         self.promotion_menu_geometry = promotion_menu_geometry
 
-        piece_image_size = max(1, int(self.geometry.square_size * self.piece_scale))
+        piece_image_size = self._board_piece_image_size()
         self._piece_images = PieceImageCache(
             pygame_module=self._pygame,
             image_dir=self.image_dir,
             target_size=piece_image_size,
         )
+        self._captured_piece_images = PieceImageCache(
+            pygame_module=self._pygame,
+            image_dir=self.image_dir,
+            target_size=self._captured_piece_image_size(),
+        )
 
     def draw(self, view_model: BoardViewModel) -> None:
         """Draw the complete board view."""
         self.clear()
+        self.draw_player_panels(view_model)
         self.draw_board()
 
         self.draw_last_move(view_model)
@@ -233,8 +244,6 @@ class BoardRenderer:
 
         if self.show_coordinates:
             self.draw_coordinates()
-
-        self.draw_message(view_model.message)
 
         if self.auto_present:
             self.present()
@@ -329,17 +338,255 @@ class BoardRenderer:
         self.surface.blit(x_text, x_rect)
 
     def refresh_after_geometry_change(self) -> None:
-        piece_image_size = max(1, int(self.geometry.square_size * self.piece_scale))
-
         self._piece_images = PieceImageCache(
             pygame_module=self._pygame,
             image_dir=self.image_dir,
-            target_size=piece_image_size,
+            target_size=self._board_piece_image_size(),
+        )
+        self._captured_piece_images = PieceImageCache(
+            pygame_module=self._pygame,
+            image_dir=self.image_dir,
+            target_size=self._captured_piece_image_size(),
         )
 
         self._coord_font = self._make_coord_font()
-        self._message_font = self._make_message_font()
+        self._player_font = self._make_player_font()
+        self._score_font = self._make_score_font()
         self._fallback_piece_font = self._make_fallback_piece_font()
+
+    def resize_to_window(
+        self,
+        window_width: int,
+        window_height: int,
+        margin: int = 20,
+    ) -> None:
+        available_width = window_width - 2 * margin
+        available_height = window_height - 2 * margin - 2 * self.panel_height
+
+        board_size = min(available_width, available_height)
+        self.geometry.square_size = max(1, board_size // 8)
+
+        self.geometry.board_left = (window_width - self.geometry.board_size) // 2
+        self.geometry.board_top = (
+            self.panel_height
+            + margin
+            + max(0, available_height - self.geometry.board_size) // 2
+        )
+        self.refresh_after_geometry_change()
+
+    def draw_player_panels(self, view_model: BoardViewModel) -> None:
+        top_panel = (
+            view_model.black_panel
+            if self.geometry.white_at_bottom
+            else view_model.white_panel
+        )
+        bottom_panel = (
+            view_model.white_panel
+            if self.geometry.white_at_bottom
+            else view_model.black_panel
+        )
+
+        top_rect, bottom_rect = self._player_panel_rects()
+
+        self.draw_player_panel(top_panel, top_rect, vertical_anchor="bottom")
+        self.draw_player_panel(bottom_panel, bottom_rect, vertical_anchor="top")
+
+    def _player_panel_rects(self):
+        board_top = self.geometry.board_top
+        board_bottom = self.geometry.board_top + self.geometry.board_size
+        surface_height = self.surface.get_height()
+
+        top_height = min(self.panel_height, max(0, board_top))
+        top_rect = self._pygame.Rect(
+            self.geometry.board_left,
+            board_top - top_height,
+            self.geometry.board_size,
+            top_height,
+        )
+
+        bottom_height = min(
+            self.panel_height,
+            max(0, surface_height - board_bottom),
+        )
+        bottom_rect = self._pygame.Rect(
+            self.geometry.board_left,
+            board_bottom,
+            self.geometry.board_size,
+            bottom_height,
+        )
+
+        return top_rect, bottom_rect
+
+    def draw_player_panel(
+        self,
+        panel: PlayerPanelView,
+        rect,
+        *,
+        vertical_anchor: str = "top",
+    ) -> None:
+        if rect.height <= 0:
+            return
+
+        name_surface = self._player_font.render(
+            panel.display_name,
+            True,
+            self.colors.player_text,
+        )
+
+        padding = 4
+        gap = 4
+        icon_size = self._panel_captured_piece_image_size(
+            rect,
+            name_surface,
+            panel.captured_pieces,
+        )
+        self._set_captured_piece_image_size(icon_size)
+
+        content_height = name_surface.get_height() + gap + icon_size
+        y = self._player_panel_content_y(
+            rect=rect,
+            content_height=content_height,
+            padding=padding,
+            vertical_anchor=vertical_anchor,
+        )
+        x = rect.left
+
+        self.surface.blit(name_surface, (x, y))
+
+        icon_y = max(
+            rect.top + padding,
+            min(
+                y + name_surface.get_height() + gap,
+                rect.bottom - icon_size - padding,
+            ),
+        )
+        next_x = self.draw_captured_pieces(
+            panel.captured_pieces,
+            x,
+            icon_y,
+            rect.width,
+        )
+
+        if panel.material_advantage > 0:
+            score_surface = self._score_font.render(
+                f"+{panel.material_advantage}",
+                True,
+                self.colors.material_advantage,
+            )
+            score_x = max(
+                x,
+                min(
+                    max(next_x + 8, x),
+                    rect.right - score_surface.get_width(),
+                ),
+            )
+            score_y = max(
+                rect.top + padding,
+                min(
+                    icon_y + max(0, (icon_size - score_surface.get_height()) // 2),
+                    rect.bottom - score_surface.get_height() - padding,
+                ),
+            )
+            self.surface.blit(score_surface, (score_x, score_y))
+
+    def _player_panel_content_y(
+        self,
+        *,
+        rect,
+        content_height: int,
+        padding: int,
+        vertical_anchor: str,
+    ) -> int:
+        if vertical_anchor == "bottom":
+            return max(
+                rect.top + padding,
+                rect.bottom - content_height - padding,
+            )
+
+        if vertical_anchor == "center":
+            return rect.top + max(
+                padding,
+                (rect.height - content_height) // 2,
+            )
+
+        return rect.top + padding
+
+    def draw_captured_pieces(
+        self,
+        captured_pieces: tuple[CapturedPieceView, ...],
+        x: int,
+        y: int,
+        max_width: int,
+    ) -> int:
+        if not captured_pieces:
+            return x
+
+        icon_size = self._captured_piece_images.target_size
+        reserve_for_score = 56
+        available = max(0, max_width - reserve_for_score)
+        groups = self._group_captured_pieces(captured_pieces)
+        group_gap = max(8, int(icon_size * 0.42))
+        step = max(4, int(icon_size * 0.58))
+        group_count = len(groups)
+        repeated_piece_count = len(captured_pieces) - group_count
+        needed = (
+            group_count * icon_size
+            + repeated_piece_count * step
+            + max(0, group_count - 1) * group_gap
+        )
+
+        if needed > available and group_count > 1:
+            group_gap = 4
+
+        if needed > available and repeated_piece_count > 0:
+            remaining = available - group_count * icon_size - max(0, group_count - 1) * group_gap
+            step = max(1, remaining // repeated_piece_count)
+
+        current_x = x
+        for group_index, group in enumerate(groups):
+            for captured_piece in group:
+                self.draw_captured_piece(captured_piece, current_x, y)
+                current_x += step
+
+            current_x += icon_size - step
+
+            if group_index < len(groups) - 1:
+                current_x += group_gap
+
+        return current_x
+
+    def draw_captured_piece(
+        self,
+        captured_piece: CapturedPieceView,
+        x: int,
+        y: int,
+    ) -> None:
+        try:
+            image = self._captured_piece_images.get(
+                captured_piece.color,
+                captured_piece.piece_type,
+            )
+        except FileNotFoundError:
+            if not self.allow_missing_piece_fallback:
+                raise
+            self._draw_captured_piece_fallback(captured_piece, x, y)
+            return
+
+        self.surface.blit(image, (x, y))
+
+    def _group_captured_pieces(
+        self,
+        captured_pieces: tuple[CapturedPieceView, ...],
+    ) -> list[list[CapturedPieceView]]:
+        groups: list[list[CapturedPieceView]] = []
+
+        for captured_piece in captured_pieces:
+            if not groups or groups[-1][0].piece_type != captured_piece.piece_type:
+                groups.append([captured_piece])
+            else:
+                groups[-1].append(captured_piece)
+
+        return groups
 
     def draw_last_move(self, view_model: BoardViewModel) -> None:
         if view_model.last_move_from is not None:
@@ -441,7 +688,7 @@ class BoardRenderer:
         if not message:
             return
 
-        text_surface = self._message_font.render(message, True, self.colors.message_text)
+        text_surface = self._player_font.render(message, True, self.colors.message_text)
         x = self.geometry.board_left
         y = self.geometry.board_top + self.geometry.board_size + 12
         self.surface.blit(text_surface, (x, y))
@@ -485,6 +732,19 @@ class BoardRenderer:
         text_rect = text_surface.get_rect(center=(center_x, center_y))
         self.surface.blit(text_surface, text_rect)
 
+    def _draw_captured_piece_fallback(
+        self,
+        piece: CapturedPieceView,
+        x: int,
+        y: int,
+    ) -> None:
+        text_surface = self._fallback_piece_font.render(
+            piece.symbol,
+            True,
+            self.colors.player_text,
+        )
+        self.surface.blit(text_surface, (x, y))
+
     def _resolve_image_dir(self, image_dir: str | Path) -> Path:
         """
         Search order:
@@ -520,13 +780,48 @@ class BoardRenderer:
         pygame = self._pygame
         return pygame.font.SysFont(None, max(12, self.geometry.square_size // 5))
 
-    def _make_message_font(self):
+    def _make_player_font(self):
         pygame = self._pygame
-        return pygame.font.SysFont(None, 24)
+        return pygame.font.SysFont(None, max(20, self.geometry.square_size // 3))
+
+    def _make_score_font(self):
+        pygame = self._pygame
+        return pygame.font.SysFont(None, max(20, self.geometry.square_size // 3), bold=True)
 
     def _make_fallback_piece_font(self):
         pygame = self._pygame
         return pygame.font.SysFont(None, int(self.geometry.square_size * 0.65))
+
+    def _board_piece_image_size(self) -> int:
+        return max(1, int(self.geometry.square_size * self.piece_scale))
+
+    def _captured_piece_image_size(self) -> int:
+        return max(18, int(self.geometry.square_size * 0.42))
+
+    def _panel_captured_piece_image_size(
+        self,
+        rect,
+        name_surface,
+        captured_pieces: tuple[CapturedPieceView, ...],
+    ) -> int:
+        padding = 4
+        gap = 4
+        available_height = rect.height - name_surface.get_height() - gap - 2 * padding
+        group_count = max(1, len(self._group_captured_pieces(captured_pieces)))
+        available_width = max(1, (rect.width - 56) // group_count)
+        default_size = self._captured_piece_image_size()
+
+        return max(1, min(default_size, available_height, available_width))
+
+    def _set_captured_piece_image_size(self, target_size: int) -> None:
+        if self._captured_piece_images.target_size == target_size:
+            return
+
+        self._captured_piece_images = PieceImageCache(
+            pygame_module=self._pygame,
+            image_dir=self.image_dir,
+            target_size=target_size,
+        )
 
 
 def create_pygame_board_window(
@@ -549,15 +844,17 @@ def create_pygame_board_window(
 
     pygame.init()
 
+    panel_height = max(72, int(square_size * 0.95))
+
     geometry = BoardGeometry(
         board_left=board_left,
-        board_top=board_top,
+        board_top=board_top + panel_height,
         square_size=square_size,
         white_at_bottom=white_at_bottom,
     )
 
     width = board_left * 2 + geometry.board_size
-    height = board_top * 2 + geometry.board_size + 40
+    height = board_top * 2 + geometry.board_size + panel_height * 2
 
     surface = pygame.display.set_mode((width, height), pygame.RESIZABLE)
     pygame.display.set_caption("Chess GUI")
@@ -567,6 +864,7 @@ def create_pygame_board_window(
         geometry=geometry,
         show_coordinates=show_coordinates,
         image_dir=image_dir,
+        panel_height=panel_height,
     )
 
     return surface, geometry, renderer
