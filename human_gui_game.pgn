@@ -3,46 +3,10 @@
 [Date "????.??.??"]
 [Round "?"]
 [White "HumanGUI"]
-[Black "<template_agent.core.ModularMinimaxAgent object at 0x00000148ACAAF8C0>"]
+[Black "<template_agent.core.ModularMinimaxAgent object at 0x000001E49FD7F620>"]
 [Result "0-1"]
 [TimeControl "-"]
 [Termination "illegal move by White: 0000"]
 
-0-1
-
-[Event "Self-Play"]
-[Site "?"]
-[Date "????.??.??"]
-[Round "?"]
-[White "HumanGUI"]
-[Black "<template_agent.core.ModularMinimaxAgent object at 0x00000148B3B71090>"]
-[Result "0-1"]
-[TimeControl "-"]
-[Termination "illegal move by White: 0000"]
-
-1. g3 f6 2. Bg2 d6 3. Nf3 a6 0-1
-
-[Event "Self-Play"]
-[Site "?"]
-[Date "????.??.??"]
-[Round "?"]
-[White "HumanGUI"]
-[Black "<template_agent.core.ModularMinimaxAgent object at 0x00000148B3B72210>"]
-[Result "1-0"]
-[TimeControl "-"]
-[Termination "checkmate"]
-
-1. g3 f6 2. Bg2 d6 3. Nf3 a6 4. O-O h6 5. d4 h5 6. h3 g5 7. c4 c6 8. Nc3 Bh6 9. d5 cxd5 10. Nxd5 Nc6 11. Be3 Bf5 12. c5 dxc5 13. Bxc5 h4 14. gxh4 gxh4 15. Nxh4 Bc8 16. Nb6 Qxd1 17. Rfxd1 Rb8 18. Nxc8 Rxc8 19. Rd3 Na5 20. b3 Rxc5 21. Rad1 e5 22. Rd5 Rxd5 23. Rxd5 Nc6 24. Nf5 Bf4 25. e3 Bg5 26. Nd6+ Kd8 27. Nxb7+ Kc7 28. Nc5 Nge7 29. Rd7+ Kb6 30. Ne6 Bxe3 31. fxe3 Rg8 32. Nd8 Nxd8 33. Rxe7 Kc5 34. Rc7+ Kd6 35. Ra7 Ne6 36. Rxa6+ Kc5 37. Rxe6 Rg3 38. Kf2 Rg5 39. Rxf6 Rg7 40. Rf5 Rh7 41. Rxe5+ Kd6 42. Re4 Rf7+ 43. Rf4 Rxf4+ 44. exf4 Kc5 45. h4 Kd6 46. h5 Ke6 47. h6 Kf6 48. a4 Kf5 49. a5 Kxf4 50. a6 Kf5 51. h7 Ke5 52. h8=Q+ Kd6 53. Qh6+ Ke5 54. a7 Kf5 55. Qh3+ Ke5 56. a8=Q Kd6 57. Qh5 Ke6 58. Qa6+ Kd7 59. Qh7+ Ke8 60. Qa8# 1-0
-
-[Event "Self-Play"]
-[Site "?"]
-[Date "????.??.??"]
-[Round "?"]
-[White "HumanGUI"]
-[Black "<template_agent.core.ModularMinimaxAgent object at 0x00000148B3B88050>"]
-[Result "0-1"]
-[TimeControl "-"]
-[Termination "illegal move by White: 0000"]
-
-0-1
+1. h4 f6 2. h5 g6 3. h6 b6 4. Rh5 gxh5 5. Nf3 Nxh6 6. g3 c6 7. Bh3 c5 8. Bxd7+ Nxd7 9. d4 Nf5 10. dxc5 bxc5 11. Nc3 Nxg3 12. fxg3 e5 13. Be3 Rb8 14. Qd2 Rxb2 15. O-O-O Rb6 16. Na4 Rc6 17. c4 Rg8 18. Bf2 Qc7 19. Nh4 Nb8 20. Nf5 Bxf5 21. e4 Bxe4 22. Bxc5 Bxc5 23. Qd8+ Qxd8 24. Rxd8+ Kxd8 25. Nxc5 Rxc5 0-1
 

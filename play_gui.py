@@ -99,7 +99,7 @@ class WindowConfig:
 @dataclass
 class DisplayConfig:
     perspective: BoardPerspective = BoardPerspective.WHITE_BOTTOM
-    show_coordinates: bool = False
+    show_coordinates: bool = True
 
 
 @dataclass

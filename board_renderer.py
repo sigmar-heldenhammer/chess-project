@@ -70,6 +70,7 @@ class RendererColors:
     post_game_button_border: tuple[int, int, int] = (82, 82, 82)
     post_game_button_text: tuple[int, int, int] = (245, 245, 245)
     post_game_close_text: tuple[int, int, int] = (190, 190, 190)
+    captured_piece_outline: tuple[int, int, int] = (190, 190, 190)
 
 
 class PieceImageCache:
@@ -235,6 +236,10 @@ class BoardRenderer:
         self.move_tracker_reserved_bottom_height = 0
         self.move_tracker_follow_latest = True
         self.post_game_button_rects: dict[str, list[object]] = {}
+        self._captured_piece_outline_cache: dict[
+            tuple[str, str, int, tuple[int, int, int], int],
+            object,
+        ] = {}
 
         self._pygame = self._load_pygame()
         self._coord_font = self._make_coord_font()
@@ -257,6 +262,7 @@ class BoardRenderer:
             image_dir=self.image_dir,
             target_size=self._captured_piece_image_size(),
         )
+        self._captured_piece_outline_cache = {}
 
     def draw(self, view_model: BoardViewModel) -> None:
         """Draw the complete board view."""
@@ -699,7 +705,7 @@ class BoardRenderer:
         y: int,
     ) -> None:
         try:
-            image = self._captured_piece_images.get(
+            image = self._outlined_captured_piece_image(
                 captured_piece.color,
                 captured_piece.piece_type,
             )
@@ -1247,28 +1253,48 @@ class BoardRenderer:
             file_char = name[0]
             rank_char = name[1]
             x, y = self.geometry.pixel_from_square(square)
+            visual_file, visual_rank = self._visual_position_for_square(square)
+            color = self._coordinate_label_color(square)
+            bottom_padding = max(2, self.geometry.square_size // 32)
+            edge_padding = max(bottom_padding + 1, self.geometry.square_size // 24)
 
-            if (
-                self.geometry.white_at_bottom
-                and chess.square_rank(square) == 0
-            ) or (
-                not self.geometry.white_at_bottom
-                and chess.square_rank(square) == 7
-            ):
-                self._draw_small_text(
+            if visual_rank == 7:
+                self._draw_coordinate_text(
                     file_char,
-                    x + self.geometry.square_size - 12,
-                    y + self.geometry.square_size - 16,
+                    x,
+                    y,
+                    color,
+                    anchor="bottomright",
+                    x_padding=edge_padding,
+                    y_padding=bottom_padding,
                 )
 
-            if (
-                self.geometry.white_at_bottom
-                and chess.square_file(square) == 0
-            ) or (
-                not self.geometry.white_at_bottom
-                and chess.square_file(square) == 7
-            ):
-                self._draw_small_text(rank_char, x + 4, y + 2)
+            if visual_file == 0:
+                self._draw_coordinate_text(
+                    rank_char,
+                    x,
+                    y,
+                    color,
+                    anchor="topleft",
+                    x_padding=edge_padding,
+                    y_padding=edge_padding,
+                )
+
+    def _visual_position_for_square(self, square: chess.Square) -> tuple[int, int]:
+        file_index = chess.square_file(square)
+        rank_index = chess.square_rank(square)
+
+        if self.geometry.white_at_bottom:
+            return file_index, 7 - rank_index
+
+        return 7 - file_index, rank_index
+
+    def _coordinate_label_color(self, square: chess.Square) -> tuple[int, int, int]:
+        file_index = chess.square_file(square)
+        rank_index = chess.square_rank(square)
+        is_light = (file_index + rank_index) % 2 == 1
+
+        return self.colors.dark_square if is_light else self.colors.light_square
 
     def present(self) -> None:
         self._pygame.display.flip()
@@ -1290,9 +1316,28 @@ class BoardRenderer:
         )
         pygame.draw.rect(self.surface, color, rect)
 
-    def _draw_small_text(self, text: str, x: int, y: int) -> None:
-        surface = self._coord_font.render(text, True, self.colors.border)
-        self.surface.blit(surface, (x, y))
+    def _draw_coordinate_text(
+        self,
+        text: str,
+        x: int,
+        y: int,
+        color: tuple[int, int, int],
+        *,
+        anchor: str,
+        x_padding: int,
+        y_padding: int,
+    ) -> None:
+        surface = self._coord_font.render(text, True, color)
+        square_size = self.geometry.square_size
+
+        if anchor == "bottomright":
+            rect = surface.get_rect(
+                bottomright=(x + square_size - x_padding, y + square_size - y_padding)
+            )
+        else:
+            rect = surface.get_rect(topleft=(x + x_padding, y + y_padding))
+
+        self.surface.blit(surface, rect)
 
     def _darkened_surface_color_at(self, pos: tuple[int, int]) -> tuple[int, int, int]:
         sampled = self.surface.get_at(pos)
@@ -1332,6 +1377,61 @@ class BoardRenderer:
         )
         self.surface.blit(text_surface, (x, y))
 
+    def _outlined_captured_piece_image(self, color: str, piece_type: str):
+        target_size = self._captured_piece_images.target_size
+        outline_width = 1
+        cache_key = (
+            color,
+            piece_type,
+            target_size,
+            self.colors.captured_piece_outline,
+            outline_width,
+        )
+
+        if cache_key not in self._captured_piece_outline_cache:
+            image = self._captured_piece_images.get(color, piece_type)
+            self._captured_piece_outline_cache[cache_key] = (
+                self._make_silhouette_outline_image(
+                    image,
+                    self.colors.captured_piece_outline,
+                    outline_width,
+                )
+            )
+
+        return self._captured_piece_outline_cache[cache_key]
+
+    def _make_silhouette_outline_image(
+        self,
+        image,
+        outline_color: tuple[int, int, int],
+        outline_width: int,
+    ):
+        pygame = self._pygame
+        outlined = image.copy()
+        mask = pygame.mask.from_surface(image)
+
+        for dx, dy in self._outline_offsets(outline_width):
+            outline_surface = mask.to_surface(
+                setcolor=(*outline_color, 255),
+                unsetcolor=(0, 0, 0, 0),
+            )
+            outlined.blit(outline_surface, (dx, dy))
+
+        outlined.blit(image, (0, 0))
+        return outlined
+
+    def _outline_offsets(self, outline_width: int) -> list[tuple[int, int]]:
+        offsets: list[tuple[int, int]] = []
+
+        for dx in range(-outline_width, outline_width + 1):
+            for dy in range(-outline_width, outline_width + 1):
+                if dx == 0 and dy == 0:
+                    continue
+                if dx * dx + dy * dy <= outline_width * outline_width:
+                    offsets.append((dx, dy))
+
+        return offsets
+
     def _resolve_image_dir(self, image_dir: str | Path) -> Path:
         """
         Search order:
@@ -1365,7 +1465,7 @@ class BoardRenderer:
 
     def _make_coord_font(self):
         pygame = self._pygame
-        return pygame.font.SysFont(None, max(12, self.geometry.square_size // 5))
+        return pygame.font.SysFont(None, max(14, int(self.geometry.square_size * 0.25)))
 
     def _make_player_font(self):
         pygame = self._pygame
@@ -1421,6 +1521,7 @@ class BoardRenderer:
             image_dir=self.image_dir,
             target_size=target_size,
         )
+        self._captured_piece_outline_cache = {}
 
 
 def create_pygame_board_window(
