@@ -59,7 +59,7 @@ from typing import Optional, Protocol, TextIO
 
 import chess
 
-from view_model import BoardViewModel, ViewModelBuilder
+from view_model import BoardViewModel, PostGameView, ViewModelBuilder
 
 
 class RendererProtocol(Protocol):
@@ -69,6 +69,9 @@ class RendererProtocol(Protocol):
 
 class ControllerProtocol(Protocol):
     def get_ui_state(self):
+        ...
+
+    def set_board(self, board: chess.Board) -> None:
         ...
 
 
@@ -149,6 +152,8 @@ class GameSession:
         self.board: chess.Board = initial_board if initial_board is not None else chess.Board()
         self.last_move: Optional[chess.Move] = None
         self.ply: int = 0
+        self.final_payload: Optional[dict] = None
+        self.post_game: Optional[PostGameView] = None
         self.latest_view_model: BoardViewModel = self._build_view_model()
 
     def start(self):
@@ -169,7 +174,7 @@ class GameSession:
 
         self.render_current_position()
 
-        return play_game(
+        self.final_payload = play_game(
             white=self.white,
             black=self.black,
             white_name=self.white_display_name,
@@ -178,6 +183,10 @@ class GameSession:
             on_update=self.on_position_updated,
             pgn_out=self.pgn_out,
         )
+        self.post_game = self._post_game_from_payload(self.final_payload)
+        self.render_current_position()
+
+        return self.final_payload
 
     def on_position_updated(
         self,
@@ -207,6 +216,8 @@ class GameSession:
         self.board = board
         self.last_move = move
         self.ply = ply
+        if self.controller is not None:
+            self.controller.set_board(board)
         self.latest_view_model = self._build_view_model()
 
         if self.renderer is not None:
@@ -267,6 +278,7 @@ class GameSession:
                 last_move=self.last_move,
                 white_display_name=self.white_display_name,
                 black_display_name=self.black_display_name,
+                post_game=self.post_game,
             )
 
         return self.view_model_builder.build(
@@ -275,4 +287,38 @@ class GameSession:
             last_move=self.last_move,
             white_display_name=self.white_display_name,
             black_display_name=self.black_display_name,
+            post_game=self.post_game,
         )
+
+    def _post_game_from_payload(self, payload: Optional[dict]) -> Optional[PostGameView]:
+        if payload is None:
+            return None
+
+        result = str(payload.get("result", "*"))
+        termination = str(payload.get("termination", "game over"))
+        title = self._post_game_title(result)
+
+        return PostGameView(
+            result=result,
+            termination=termination,
+            title=title,
+            body=termination,
+        )
+
+    def _post_game_title(self, result: str) -> str:
+        if result == "1-0":
+            return f"{self._truncate_display_name(self.white_display_name)} Won"
+
+        if result == "0-1":
+            return f"{self._truncate_display_name(self.black_display_name)} Won"
+
+        if result == "1/2-1/2":
+            return "Draw"
+
+        return "Game Over"
+
+    def _truncate_display_name(self, display_name: str) -> str:
+        if len(display_name) <= 25:
+            return display_name
+
+        return f"{display_name[:22]}..."

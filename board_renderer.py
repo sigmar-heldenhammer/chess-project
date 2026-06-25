@@ -57,9 +57,16 @@ class RendererColors:
     player_text: tuple[int, int, int] = (235, 235, 235)
     material_advantage: tuple[int, int, int] = (245, 245, 245)
     move_tracker_background: tuple[int, int, int] = (40, 40, 40)
+    move_tracker_alt_row_background: tuple[int, int, int] = (48, 48, 48)
     move_tracker_text: tuple[int, int, int] = (235, 235, 235)
     move_tracker_muted_text: tuple[int, int, int] = (170, 170, 170)
     move_tracker_scrollbar: tuple[int, int, int] = (140, 140, 140)
+    post_game_overlay: tuple[int, int, int] = (20, 20, 20)
+    post_game_panel: tuple[int, int, int] = (245, 245, 245)
+    post_game_title: tuple[int, int, int] = (20, 20, 20)
+    post_game_body: tuple[int, int, int] = (60, 60, 60)
+    post_game_button: tuple[int, int, int] = (230, 230, 230)
+    post_game_button_text: tuple[int, int, int] = (20, 20, 20)
 
 
 class PieceImageCache:
@@ -213,20 +220,26 @@ class BoardRenderer:
         self.allow_missing_piece_fallback = allow_missing_piece_fallback
         self.panel_height = panel_height
         self.move_tracker_gap = 20
-        self.move_tracker_min_side_width = 240
+        self.move_tracker_min_side_width = 280
         self.move_tracker_max_side_width = 340
+        self.move_tracker_min_right_board_size = 480
         self.move_tracker_min_below_height = 120
         self.move_tracker_default_below_height = 180
         self.move_tracker_rect = None
         self.move_tracker_placement = "right"
         self.move_tracker_scroll_y = 0
         self.move_tracker_content_height = 0
+        self.move_tracker_reserved_bottom_height = 0
+        self.move_tracker_follow_latest = True
+        self.post_game_button_rects: dict[str, list[object]] = {}
 
         self._pygame = self._load_pygame()
         self._coord_font = self._make_coord_font()
         self._player_font = self._make_player_font()
         self._score_font = self._make_score_font()
         self._move_tracker_font = self._make_move_tracker_font()
+        self._post_game_title_font = self._make_post_game_title_font()
+        self._post_game_body_font = self._make_post_game_body_font()
         self._fallback_piece_font = self._make_fallback_piece_font()
         self.promotion_menu_geometry = promotion_menu_geometry
 
@@ -260,6 +273,7 @@ class BoardRenderer:
             self.draw_coordinates()
 
         self.draw_move_tracker(view_model)
+        self.draw_post_game(view_model)
 
         if self.auto_present:
             self.present()
@@ -373,6 +387,8 @@ class BoardRenderer:
         self._player_font = self._make_player_font()
         self._score_font = self._make_score_font()
         self._move_tracker_font = self._make_move_tracker_font()
+        self._post_game_title_font = self._make_post_game_title_font()
+        self._post_game_body_font = self._make_post_game_body_font()
         self._fallback_piece_font = self._make_fallback_piece_font()
 
     def resize_to_window(
@@ -397,7 +413,10 @@ class BoardRenderer:
         self.geometry.board_top = layout["board_top"]
         self.move_tracker_rect = layout["move_tracker_rect"]
         self.move_tracker_placement = layout["move_tracker_placement"]
-        self._clamp_move_tracker_scroll()
+        if self.move_tracker_follow_latest:
+            self.move_tracker_scroll_y = self._move_tracker_max_scroll()
+        else:
+            self._clamp_move_tracker_scroll()
         self.refresh_after_geometry_change()
 
     def _calculate_window_layout(
@@ -422,7 +441,7 @@ class BoardRenderer:
         )
         use_right_tracker = (
             side_width >= self.move_tracker_min_side_width
-            and side_board_size >= self.move_tracker_min_side_width
+            and side_board_space >= self.move_tracker_min_right_board_size
         )
 
         if use_right_tracker:
@@ -714,9 +733,20 @@ class BoardRenderer:
         row_height = self._move_tracker_font.get_height() + row_gap
         rows = self._move_history_rows(view_model)
         content_height = max(0, len(rows) * row_height - row_gap)
-        viewport_height = max(0, rect.height - 2 * padding)
+        self.move_tracker_reserved_bottom_height = (
+            self._post_game_button_area_height()
+            if view_model.post_game is not None
+            else 0
+        )
+        viewport_height = max(
+            0,
+            rect.height - 2 * padding - self.move_tracker_reserved_bottom_height,
+        )
         self.move_tracker_content_height = content_height
-        self._clamp_move_tracker_scroll()
+        if self.move_tracker_follow_latest:
+            self.move_tracker_scroll_y = self._move_tracker_max_scroll()
+        else:
+            self._clamp_move_tracker_scroll()
 
         pygame.draw.rect(self.surface, self.colors.move_tracker_background, rect)
         pygame.draw.rect(self.surface, self.colors.border, rect, width=2)
@@ -741,8 +771,20 @@ class BoardRenderer:
         white_x = clip_rect.left + number_width
         black_x = white_x + max(56, (clip_rect.width - number_width) // 2)
 
-        for fullmove_number, white_san, black_san in rows:
+        for row_index, (fullmove_number, white_san, black_san) in enumerate(rows):
             if y + row_height >= clip_rect.top and y <= clip_rect.bottom:
+                if row_index % 2 == 1:
+                    pygame.draw.rect(
+                        self.surface,
+                        self.colors.move_tracker_alt_row_background,
+                        pygame.Rect(
+                            clip_rect.left,
+                            y,
+                            clip_rect.width,
+                            row_height - row_gap,
+                        ),
+                    )
+
                 number_surface = self._move_tracker_font.render(
                     f"{fullmove_number}.",
                     True,
@@ -826,6 +868,206 @@ class BoardRenderer:
     def _move_tracker_scrollbar_space(self) -> int:
         return 14
 
+    def draw_post_game(self, view_model: BoardViewModel) -> None:
+        self.post_game_button_rects = {}
+
+        if view_model.post_game is None:
+            return
+
+        if view_model.post_game.show_overlay:
+            self._draw_post_game_overlay(view_model)
+
+        self._draw_post_game_buttons()
+
+    def _draw_post_game_overlay(self, view_model: BoardViewModel) -> None:
+        pygame = self._pygame
+        board_rect = pygame.Rect(
+            self.geometry.board_left,
+            self.geometry.board_top,
+            self.geometry.board_size,
+            self.geometry.board_size,
+        )
+        dim_surface = pygame.Surface((board_rect.width, board_rect.height), pygame.SRCALPHA)
+        dim_surface.fill((*self.colors.post_game_overlay, 125))
+        self.surface.blit(dim_surface, board_rect)
+
+        panel_width = min(
+            max(260, int(self.geometry.board_size * 0.72)),
+            max(1, self.geometry.board_size - 32),
+        )
+        panel_height = min(
+            max(210, int(self.geometry.board_size * 0.42)),
+            max(1, self.geometry.board_size - 32),
+        )
+        panel_rect = pygame.Rect(0, 0, panel_width, panel_height)
+        panel_rect.center = board_rect.center
+
+        pygame.draw.rect(
+            self.surface,
+            self.colors.post_game_panel,
+            panel_rect,
+            border_radius=12,
+        )
+        pygame.draw.rect(
+            self.surface,
+            self.colors.border,
+            panel_rect,
+            width=2,
+            border_radius=12,
+        )
+
+        assert view_model.post_game is not None
+        close_rect = self._post_game_close_rect(panel_rect)
+        self.post_game_button_rects["close_post_game"] = [close_rect]
+        pygame.draw.rect(
+            self.surface,
+            self.colors.post_game_button,
+            close_rect,
+            border_radius=8,
+        )
+        pygame.draw.rect(
+            self.surface,
+            self.colors.border,
+            close_rect,
+            width=2,
+            border_radius=8,
+        )
+        close_surface = self._post_game_body_font.render(
+            "X",
+            True,
+            self.colors.post_game_button_text,
+        )
+        self.surface.blit(close_surface, close_surface.get_rect(center=close_rect.center))
+
+        title_surface = self._post_game_title_font.render(
+            view_model.post_game.title,
+            True,
+            self.colors.post_game_title,
+        )
+        body_surface = self._post_game_body_font.render(
+            view_model.post_game.body,
+            True,
+            self.colors.post_game_body,
+        )
+        title_rect = title_surface.get_rect(
+            center=(panel_rect.centerx, panel_rect.top + panel_rect.height // 4)
+        )
+        body_rect = body_surface.get_rect(
+            center=(panel_rect.centerx, panel_rect.top + panel_rect.height // 2)
+        )
+        self.surface.blit(title_surface, title_rect)
+        self.surface.blit(body_surface, body_rect)
+        self._draw_post_game_popup_buttons(panel_rect)
+
+    def _draw_post_game_buttons(self) -> None:
+        button_rects = self._post_game_button_rects()
+        self._remember_post_game_button_rects(button_rects)
+
+        for action, rect in button_rects.items():
+            self._draw_post_game_button(action, rect)
+
+    def _draw_post_game_popup_buttons(self, panel_rect) -> None:
+        button_rects = self._post_game_popup_button_rects(panel_rect)
+        self._remember_post_game_button_rects(button_rects)
+
+        for action, rect in button_rects.items():
+            self._draw_post_game_button(action, rect)
+
+    def _draw_post_game_button(self, action: str, rect) -> None:
+        pygame = self._pygame
+        labels = {
+            "rematch": "Rematch",
+            "quit": "Quit",
+        }
+
+        if action not in labels:
+            return
+
+        pygame.draw.rect(
+            self.surface,
+            self.colors.post_game_button,
+            rect,
+            border_radius=8,
+        )
+        pygame.draw.rect(
+            self.surface,
+            self.colors.border,
+            rect,
+            width=2,
+            border_radius=8,
+        )
+        label_surface = self._post_game_body_font.render(
+            labels[action],
+            True,
+            self.colors.post_game_button_text,
+        )
+        label_rect = label_surface.get_rect(center=rect.center)
+        self.surface.blit(label_surface, label_rect)
+
+    def _remember_post_game_button_rects(self, button_rects: dict[str, object]) -> None:
+        for action, rect in button_rects.items():
+            self.post_game_button_rects.setdefault(action, []).append(rect)
+
+    def _post_game_button_rects(self) -> dict[str, object]:
+        if self.move_tracker_rect is None:
+            return {}
+
+        pygame = self._pygame
+        padding = 10
+        gap = 8
+        button_height = max(34, self._post_game_body_font.get_height() + 12)
+        button_width = max(
+            88,
+            (self.move_tracker_rect.width - 2 * padding - gap) // 2,
+        )
+        total_width = 2 * button_width + gap
+        x = self.move_tracker_rect.left + max(
+            padding,
+            (self.move_tracker_rect.width - total_width) // 2,
+        )
+        y = self.move_tracker_rect.bottom - padding - button_height
+
+        return {
+            "rematch": pygame.Rect(x, y, button_width, button_height),
+            "quit": pygame.Rect(x + button_width + gap, y, button_width, button_height),
+        }
+
+    def _post_game_popup_button_rects(self, panel_rect) -> dict[str, object]:
+        pygame = self._pygame
+        gap = 10
+        button_height = max(36, self._post_game_body_font.get_height() + 14)
+        button_width = max(100, (panel_rect.width - 48 - gap) // 2)
+        total_width = 2 * button_width + gap
+        x = panel_rect.centerx - total_width // 2
+        y = panel_rect.bottom - button_height - 22
+
+        return {
+            "rematch": pygame.Rect(x, y, button_width, button_height),
+            "quit": pygame.Rect(x + button_width + gap, y, button_width, button_height),
+        }
+
+    def _post_game_close_rect(self, panel_rect):
+        pygame = self._pygame
+        size = max(28, self._post_game_body_font.get_height() + 8)
+        return pygame.Rect(
+            panel_rect.right - size - 10,
+            panel_rect.top + 10,
+            size,
+            size,
+        )
+
+    def _post_game_button_area_height(self) -> int:
+        button_height = max(34, self._post_game_body_font.get_height() + 12)
+        return button_height + 20
+
+    def ui_action_at_pixel(self, pos: tuple[int, int]) -> Optional[str]:
+        for action, rects in self.post_game_button_rects.items():
+            for rect in rects:
+                if rect.collidepoint(pos):
+                    return action
+
+        return None
+
     def handle_move_tracker_scroll(
         self,
         scroll_delta_y: int,
@@ -840,15 +1082,29 @@ class BoardRenderer:
         row_height = self._move_tracker_font.get_height() + 4
         self.move_tracker_scroll_y -= scroll_delta_y * row_height * 3
         self._clamp_move_tracker_scroll()
+        self.move_tracker_follow_latest = (
+            self.move_tracker_scroll_y >= self._move_tracker_max_scroll()
+        )
 
     def _clamp_move_tracker_scroll(self) -> None:
         if self.move_tracker_rect is None:
             self.move_tracker_scroll_y = 0
             return
 
-        viewport_height = max(0, self.move_tracker_rect.height - 20)
-        max_scroll = max(0, self.move_tracker_content_height - viewport_height)
+        max_scroll = self._move_tracker_max_scroll()
         self.move_tracker_scroll_y = max(0, min(self.move_tracker_scroll_y, max_scroll))
+
+    def _move_tracker_max_scroll(self) -> int:
+        if self.move_tracker_rect is None:
+            return 0
+
+        viewport_height = max(
+            0,
+            self.move_tracker_rect.height
+            - 20
+            - self.move_tracker_reserved_bottom_height,
+        )
+        return max(0, self.move_tracker_content_height - viewport_height)
 
     def draw_last_move(self, view_model: BoardViewModel) -> None:
         if view_model.last_move_from is not None:
@@ -1054,7 +1310,15 @@ class BoardRenderer:
 
     def _make_move_tracker_font(self):
         pygame = self._pygame
-        return pygame.font.SysFont(None, max(16, self.geometry.square_size // 4))
+        return pygame.font.SysFont(None, max(18, int(self.geometry.square_size * 0.30)))
+
+    def _make_post_game_title_font(self):
+        pygame = self._pygame
+        return pygame.font.SysFont(None, max(24, int(self.geometry.square_size * 0.42)), bold=True)
+
+    def _make_post_game_body_font(self):
+        pygame = self._pygame
+        return pygame.font.SysFont(None, max(18, int(self.geometry.square_size * 0.28)))
 
     def _make_fallback_piece_font(self):
         pygame = self._pygame

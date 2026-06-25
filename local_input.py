@@ -87,6 +87,7 @@ class InputResult:
     window_resized: bool = False
     window_size: Optional[tuple[int, int]] = None
     scroll_delta_y: int = 0
+    ui_action: Optional[str] = None
 
 @dataclass
 class PromotionMenuGeometry:
@@ -327,6 +328,7 @@ class LocalMouseInputAdapter:
         geometry: BoardGeometry,
         promotion_menu_geometry: Optional[PromotionMenuGeometry] = None,
         get_view_model: Optional[Callable[[], BoardViewModel]] = None,
+        get_ui_action_at_pixel: Optional[Callable[[tuple[int, int]], Optional[str]]] = None,
         *,
         left_click_only: bool = True,
     ):
@@ -349,6 +351,7 @@ class LocalMouseInputAdapter:
         self.left_click_only = left_click_only
         self.promotion_menu_geometry = promotion_menu_geometry
         self.get_view_model = get_view_model
+        self.get_ui_action_at_pixel = get_ui_action_at_pixel
         
 
     def handle_events(self) -> InputResult:
@@ -379,6 +382,7 @@ class LocalMouseInputAdapter:
         window_resized = False
         window_size = None
         scroll_delta_y = 0
+        ui_action = None
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -397,6 +401,16 @@ class LocalMouseInputAdapter:
                 if event.button == 5:
                     scroll_delta_y -= 1
                     continue
+
+                if event.button == 1 and self.get_ui_action_at_pixel is not None:
+                    ui_action = self.get_ui_action_at_pixel(event.pos)
+                    if ui_action is not None:
+                        continue
+
+                if self.get_view_model is not None:
+                    view_model = self.get_view_model()
+                    if view_model.post_game is not None:
+                        continue
 
                 promotion_active = False
 
@@ -421,6 +435,7 @@ class LocalMouseInputAdapter:
             window_resized=window_resized,
             window_size=window_size,
             scroll_delta_y=scroll_delta_y,
+            ui_action=ui_action,
 
         )
 

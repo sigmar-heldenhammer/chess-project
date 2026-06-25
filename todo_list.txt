@@ -43,8 +43,18 @@ pieces move instead of teleport
 
 spaces between groups too large
 pieces do not overlap within groups
+add different colors for rows in move tracker
 
 
 Code cleaning:
 clean up promotion handling in chess_gui_controller's try_complete_move() function
+
+
+
+associate human-readable names with agents
+
+white outline to taken piece images
+
+change color of buttons/popup, add highlights to give 3d appearance
+
 

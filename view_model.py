@@ -85,7 +85,7 @@ class PieceView:
     color: str
     piece_type: str
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "square": self.square,
             "symbol": self.symbol,
@@ -120,7 +120,7 @@ class CapturedPieceView:
     piece_type: str
     symbol: str
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "color": self.color,
             "piece_type": self.piece_type,
@@ -173,6 +173,24 @@ class MoveHistoryEntryView:
 
 
 @dataclass(frozen=True)
+class PostGameView:
+    result: str
+    termination: str
+    title: str
+    body: str
+    show_overlay: bool = True
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "result": self.result,
+            "termination": self.termination,
+            "title": self.title,
+            "body": self.body,
+            "show_overlay": self.show_overlay,
+        }
+
+
+@dataclass(frozen=True)
 class BoardViewModel:
     """
     Complete renderer-facing state for the board.
@@ -214,6 +232,7 @@ class BoardViewModel:
     )
 
     move_history: tuple[MoveHistoryEntryView, ...] = field(default_factory=tuple)
+    post_game: Optional[PostGameView] = None
     message: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -243,6 +262,11 @@ class BoardViewModel:
             "white_panel": self.white_panel.to_dict(),
             "black_panel": self.black_panel.to_dict(),
             "move_history": [entry.to_dict() for entry in self.move_history],
+            "post_game": (
+                None
+                if self.post_game is None
+                else self.post_game.to_dict()
+            ),
             "promotion_request": (
                 None
                 if self.promotion_request is None
@@ -344,6 +368,7 @@ class ViewModelBuilder:
         message: Optional[str] = None,
         white_display_name: str = "White",
         black_display_name: str = "Black",
+        post_game: Optional[PostGameView] = None,
     ) -> BoardViewModel:
         """
         Build a renderer-friendly view model.
@@ -420,6 +445,7 @@ class ViewModelBuilder:
             white_panel=white_panel,
             black_panel=black_panel,
             move_history=self._build_move_history(board),
+            post_game=post_game,
             message=message if message is not None else ui_message,
         )
 
@@ -432,6 +458,7 @@ class ViewModelBuilder:
         message: Optional[str] = None,
         white_display_name: str = "White",
         black_display_name: str = "Black",
+        post_game: Optional[PostGameView] = None,
     ) -> BoardViewModel:
         """
         Convenience wrapper around build(...).
@@ -459,6 +486,7 @@ class ViewModelBuilder:
             message=message,
             white_display_name=white_display_name,
             black_display_name=black_display_name,
+            post_game=post_game,
         )
 
     def _build_piece_views(self, board: chess.Board) -> tuple[PieceView, ...]:

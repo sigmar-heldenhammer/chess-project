@@ -65,7 +65,7 @@ Important assumptions:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 from enum import Enum
 
@@ -81,6 +81,13 @@ from view_model import ViewModelBuilder
 class BoardPerspective(Enum):
     WHITE_BOTTOM = "white_bottom"
     PLAYER_BOTTOM = "player_bottom"
+
+
+class AppMode(Enum):
+    PLAYING = "playing"
+    GAME_OVER = "game_over"
+    QUIT_REQUESTED = "quit_requested"
+
 
 @dataclass
 class WindowConfig:
@@ -168,8 +175,9 @@ class ChessGUIApp:
             The default setup is human as White vs engine as Black.
         """
         self.config = config or ChessGUIConfig()
+        self.white_agent_factory = white_agent_factory
+        self.black_agent_factory = black_agent_factory
 
-        self.controller = ChessGUIController()
         self.view_model_builder = ViewModelBuilder()
 
         # pygame/window/renderer/input are initialized together so they share
@@ -183,7 +191,7 @@ class ChessGUIApp:
         )
 
         self.apply_board_perspective()
-        
+
         self.promotion_menu_geometry = PromotionMenuGeometry(
             board_geometry=self.geometry,
             option_size=self.geometry.square_size,
@@ -191,72 +199,28 @@ class ChessGUIApp:
 
         self.renderer.promotion_menu_geometry = self.promotion_menu_geometry
 
-        self.input_adapter = LocalMouseInputAdapter(
-            controller=self.controller,
-            geometry=self.geometry,
-            promotion_menu_geometry=self.promotion_menu_geometry,
-            get_view_model=self.get_latest_view_model,
-
-        )
-
-
-
         self._pygame = self._load_pygame()
         self.clock = self._pygame.time.Clock()
 
         self.quit_requested = False
+        self.app_mode = AppMode.PLAYING
+        self.post_game_overlay_visible = True
 
-        # These are kept so pump_once() can render the most current board even
-        # while HumanGUIAgent is blocking inside select_move(...).
-        self.current_board = chess.Board()
-        self.last_move: Optional[chess.Move] = None
-        self.ply: int = 0
-
+        self.controller: ChessGUIController
+        self.input_adapter: LocalMouseInputAdapter
+        self.current_board: chess.Board
+        self.last_move: Optional[chess.Move]
+        self.ply: int
         self.pgn_path = pgn_path
         self.pgn_out = None
+        self.human_agent = None
+        self.white = None
+        self.black = None
+        self.white_display_name = "White"
+        self.black_display_name = "Black"
+        self.session: Optional[GameSession] = None
 
-        # HumanGUIAgent needs pump_once() to keep the app responsive while it
-        # waits for click input.
-        self.human_agent = HumanGUIAgent(
-            controller=self.controller,
-            gui_pump=self.pump_once,
-            should_quit=self.should_quit,
-        )
-
-        self.white = (
-            white_agent_factory()
-            if white_agent_factory is not None
-            else self.human_agent
-        )
-
-        self.black = (
-            black_agent_factory()
-            if black_agent_factory is not None
-            else self._default_black_agent()
-        )
-
-        self.white_display_name = (
-            self.config.players.white_display_name
-            if self.config.players.white_display_name is not None
-            else str(self.white)
-        )
-        self.black_display_name = (
-            self.config.players.black_display_name
-            if self.config.players.black_display_name is not None
-            else str(self.black)
-        )
-
-        self.session = GameSession(
-            white=self.white,
-            black=self.black,
-            controller=self.controller,
-            renderer=self.renderer,
-            view_model_builder=self.view_model_builder,
-            pgn_out=None,  # opened in run() so the handle can be closed safely
-            initial_board=self.current_board,
-            white_display_name=self.white_display_name,
-            black_display_name=self.black_display_name,
-        )
+        self.start_new_game()
 
     # ------------------------------------------------------------------
     # Main execution
@@ -275,21 +239,43 @@ class ChessGUIApp:
         Side effects:
             Opens pygame window and optional PGN output file.
         """
+        last_result = None
+
         try:
             if self.pgn_path is not None:
                 self.pgn_out = open(self.pgn_path, "w", encoding="utf-8")
                 self.session.pgn_out = self.pgn_out
 
-            # Initial draw before arena.play_game begins.
-            self.render_current_position()
+            while not self.quit_requested:
+                assert self.session is not None
+                self.session.pgn_out = self.pgn_out
+                self.app_mode = AppMode.PLAYING
 
-            return self.session.start()
+                # Initial draw before arena.play_game begins.
+                self.render_current_position()
+
+                last_result = self.session.start()
+
+                if self.quit_requested:
+                    break
+
+                self.app_mode = AppMode.GAME_OVER
+                action = self.run_game_over_screen()
+
+                if action == "rematch":
+                    self.start_new_game()
+                    continue
+
+                break
+
+            return last_result
 
         except HumanGUIQuitRequested:
             # Normal user-closed-window path during a human move.
             return None
 
         finally:
+            self.app_mode = AppMode.QUIT_REQUESTED
             if self.pgn_out is not None:
                 self.pgn_out.close()
 
@@ -324,7 +310,31 @@ class ChessGUIApp:
         integration point between blocking Agent.select_move(...) and the GUI.
         """
         input_result = self.input_adapter.handle_events()
+        self._handle_input_result(input_result)
 
+        if self.quit_requested:
+            return
+
+        self._sync_current_board()
+        self.render_current_position()
+
+        self.clock.tick(self.config.controls.fps)
+
+    def run_game_over_screen(self) -> Optional[str]:
+        while not self.quit_requested:
+            input_result = self.input_adapter.handle_events()
+            action = self._handle_input_result(input_result)
+
+            if action in {"rematch", "quit"}:
+                return action
+
+            self._sync_current_board()
+            self.render_current_position()
+            self.clock.tick(self.config.controls.fps)
+
+        return "quit"
+
+    def _handle_input_result(self, input_result) -> Optional[str]:
         if input_result.window_resized and input_result.window_size is not None:
             width, height = input_result.window_size
             self.renderer.resize_to_window(width, height)
@@ -338,12 +348,22 @@ class ChessGUIApp:
 
         if input_result.quit_requested:
             self.quit_requested = True
-            return
+            self.app_mode = AppMode.QUIT_REQUESTED
+            return "quit"
 
-        self._sync_current_board()
-        self.render_current_position()
+        if input_result.ui_action == "quit":
+            self.quit_requested = True
+            self.app_mode = AppMode.QUIT_REQUESTED
+            return "quit"
 
-        self.clock.tick(self.config.controls.fps)
+        if input_result.ui_action == "rematch":
+            return "rematch"
+
+        if input_result.ui_action == "close_post_game":
+            self.post_game_overlay_visible = False
+            return "close_post_game"
+
+        return input_result.ui_action
 
     def render_current_position(self) -> None:
         """
@@ -361,6 +381,7 @@ class ChessGUIApp:
             last_move=self.last_move,
             white_display_name=self.white_display_name,
             black_display_name=self.black_display_name,
+            post_game=self._current_post_game_view(),
         )
         self.renderer.draw(view_model)
 
@@ -372,6 +393,16 @@ class ChessGUIApp:
             last_move=self.last_move,
             white_display_name=self.white_display_name,
             black_display_name=self.black_display_name,
+            post_game=self._current_post_game_view(),
+        )
+
+    def _current_post_game_view(self):
+        if self.session is None or self.session.post_game is None:
+            return None
+
+        return replace(
+            self.session.post_game,
+            show_overlay=self.post_game_overlay_visible,
         )
 
     def should_quit(self) -> bool:
@@ -425,14 +456,83 @@ class ChessGUIApp:
 
         This method avoids stale rendering while the human agent is blocking.
         """
-        if self.controller.board is not None:
-            self.current_board = self.controller.board
-
-        elif self.session.board is not None:
+        if (
+            self.app_mode == AppMode.GAME_OVER
+            and self.session is not None
+            and self.session.board is not None
+        ):
             self.current_board = self.session.board
 
-        self.last_move = self.session.last_move
-        self.ply = self.session.ply
+        elif self.controller.board is not None:
+            self.current_board = self.controller.board
+
+        elif self.session is not None and self.session.board is not None:
+            self.current_board = self.session.board
+
+        if self.session is not None:
+            self.last_move = self.session.last_move
+            self.ply = self.session.ply
+
+    def start_new_game(self) -> None:
+        self.app_mode = AppMode.PLAYING
+        self.post_game_overlay_visible = True
+        self.controller = ChessGUIController()
+        self.current_board = chess.Board()
+        self.last_move = None
+        self.ply = 0
+        self.renderer.move_tracker_scroll_y = 0
+        self.renderer.move_tracker_content_height = 0
+        self.renderer.move_tracker_follow_latest = True
+        self.renderer.post_game_button_rects = {}
+
+        self.human_agent = HumanGUIAgent(
+            controller=self.controller,
+            gui_pump=self.pump_once,
+            should_quit=self.should_quit,
+        )
+
+        self.white = (
+            self.white_agent_factory()
+            if self.white_agent_factory is not None
+            else self.human_agent
+        )
+        self.black = (
+            self.black_agent_factory()
+            if self.black_agent_factory is not None
+            else self._default_black_agent()
+        )
+
+        self.white_display_name = (
+            self.config.players.white_display_name
+            if self.config.players.white_display_name is not None
+            else str(self.white)
+        )
+        self.black_display_name = (
+            self.config.players.black_display_name
+            if self.config.players.black_display_name is not None
+            else str(self.black)
+        )
+
+        self.input_adapter = LocalMouseInputAdapter(
+            controller=self.controller,
+            geometry=self.geometry,
+            promotion_menu_geometry=self.promotion_menu_geometry,
+            get_view_model=self.get_latest_view_model,
+            get_ui_action_at_pixel=self.renderer.ui_action_at_pixel,
+        )
+
+        self.controller.set_board(self.current_board)
+        self.session = GameSession(
+            white=self.white,
+            black=self.black,
+            controller=self.controller,
+            renderer=self.renderer,
+            view_model_builder=self.view_model_builder,
+            pgn_out=self.pgn_out,
+            initial_board=self.current_board,
+            white_display_name=self.white_display_name,
+            black_display_name=self.black_display_name,
+        )
 
     # ------------------------------------------------------------------
     # Agent construction
