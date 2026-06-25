@@ -739,6 +739,8 @@ class BoardRenderer:
         self.move_tracker_reserved_bottom_height = (
             self._post_game_button_area_height()
             if view_model.post_game is not None
+            else self._concede_button_area_height()
+            if self._should_draw_concede_button(view_model)
             else 0
         )
         viewport_height = max(
@@ -875,12 +877,27 @@ class BoardRenderer:
         self.post_game_button_rects = {}
 
         if view_model.post_game is None:
+            self._draw_concede_button(view_model)
             return
 
         if view_model.post_game.show_overlay:
             self._draw_post_game_overlay(view_model)
 
         self._draw_post_game_buttons()
+
+    def _should_draw_concede_button(self, view_model: BoardViewModel) -> bool:
+        return view_model.post_game is None and not view_model.is_game_over
+
+    def _draw_concede_button(self, view_model: BoardViewModel) -> None:
+        if not self._should_draw_concede_button(view_model):
+            return
+
+        button_rect = self._concede_button_rect()
+        if button_rect is None:
+            return
+
+        self.post_game_button_rects["concede"] = [button_rect]
+        self._draw_ui_button("concede", button_rect, label="Concede")
 
     def _draw_post_game_overlay(self, view_model: BoardViewModel) -> None:
         pygame = self._pygame
@@ -965,7 +982,6 @@ class BoardRenderer:
             self._draw_post_game_button(action, rect)
 
     def _draw_post_game_button(self, action: str, rect) -> None:
-        pygame = self._pygame
         labels = {
             "rematch": "Rematch",
             "quit": "Quit",
@@ -974,6 +990,9 @@ class BoardRenderer:
         if action not in labels:
             return
 
+        self._draw_ui_button(action, rect, label=labels[action])
+
+    def _draw_ui_button(self, action: str, rect, *, label: str) -> None:
         self._draw_rounded_vertical_gradient(
             rect,
             top_color=self.colors.post_game_button_top,
@@ -983,7 +1002,7 @@ class BoardRenderer:
         )
 
         label_surface = self._post_game_body_font.render(
-            labels[action],
+            label,
             True,
             self.colors.post_game_button_text,
         )
@@ -1060,6 +1079,22 @@ class BoardRenderer:
             "quit": pygame.Rect(x + button_width + gap, y, button_width, button_height),
         }
 
+    def _concede_button_rect(self):
+        if self.move_tracker_rect is None:
+            return None
+
+        pygame = self._pygame
+        padding = 10
+        button_height = max(34, self._post_game_body_font.get_height() + 12)
+        button_width = max(
+            88,
+            (self.move_tracker_rect.width - 2 * padding - 8) // 2,
+        )
+        x = self.move_tracker_rect.left + padding
+        y = self.move_tracker_rect.bottom - padding - button_height
+
+        return pygame.Rect(x, y, button_width, button_height)
+
     def _post_game_popup_button_rects(self, panel_rect) -> dict[str, object]:
         pygame = self._pygame
         gap = 10
@@ -1085,6 +1120,10 @@ class BoardRenderer:
         )
 
     def _post_game_button_area_height(self) -> int:
+        button_height = max(34, self._post_game_body_font.get_height() + 12)
+        return button_height + 20
+
+    def _concede_button_area_height(self) -> int:
         button_height = max(34, self._post_game_body_font.get_height() + 12)
         return button_height + 20
 

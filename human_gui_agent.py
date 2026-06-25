@@ -105,6 +105,7 @@ class ChessGUIControllerProtocol(Protocol):
 
 GUIPump = Callable[[], None]
 ShouldQuit = Callable[[], bool]
+ShouldConcede = Callable[[], bool]
 
 
 class HumanGUIAgent(Agent):
@@ -124,6 +125,7 @@ class HumanGUIAgent(Agent):
         gui_pump: GUIPump,
         *,
         should_quit: Optional[ShouldQuit] = None,
+        should_concede: Optional[ShouldConcede] = None,
         name: str = "HumanGUI",
     ):
         """
@@ -138,6 +140,10 @@ class HumanGUIAgent(Agent):
             should_quit:
                 Optional callback returning True if the app/window is closing.
 
+            should_concede:
+                Optional callback returning True if the app requested that the
+                human player concede the current game.
+
             name:
                 Human-readable agent name.
 
@@ -147,6 +153,7 @@ class HumanGUIAgent(Agent):
         self.controller = controller
         self.gui_pump = gui_pump
         self.should_quit = should_quit
+        self.should_concede = should_concede
         self.name = name
 
     def select_move(self, board: chess.Board, **kwargs) -> chess.Move:
@@ -184,12 +191,20 @@ class HumanGUIAgent(Agent):
                 self.controller.clear_selection()
                 raise HumanGUIQuitRequested("GUI closed while waiting for human move.")
 
+            if self.should_concede is not None and self.should_concede():
+                self.controller.clear_selection()
+                return chess.Move.null()
+
             # Keep frontend responsive. This is where the app should:
             #   - handle input events
             #   - let LocalMouseInputAdapter feed square clicks to controller
             #   - rebuild view model
             #   - redraw renderer
             self.gui_pump()
+
+            if self.should_concede is not None and self.should_concede():
+                self.controller.clear_selection()
+                return chess.Move.null()
 
             move = self.controller.pop_pending_move()
 

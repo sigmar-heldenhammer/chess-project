@@ -305,6 +305,27 @@ class GameSession:
             body=termination,
         )
 
+    def apply_concession(
+        self,
+        *,
+        conceding_color: chess.Color,
+        white_display_name: str,
+        black_display_name: str,
+    ) -> None:
+        winner_name = (
+            black_display_name
+            if conceding_color == chess.WHITE
+            else white_display_name
+        )
+        result = "0-1" if conceding_color == chess.WHITE else "1-0"
+        self.post_game = PostGameView(
+            result=result,
+            termination="concession",
+            title=f"{self._truncate_display_name(winner_name)} Won",
+            body="concession",
+        )
+        self.latest_view_model = self._build_view_model()
+
     def _post_game_title(self, result: str) -> str:
         if result == "1-0":
             return f"{self._truncate_display_name(self.white_display_name)} Won"

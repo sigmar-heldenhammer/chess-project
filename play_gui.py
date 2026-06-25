@@ -205,6 +205,8 @@ class ChessGUIApp:
         self.quit_requested = False
         self.app_mode = AppMode.PLAYING
         self.post_game_overlay_visible = True
+        self.concede_requested = False
+        self.conceding_color: Optional[chess.Color] = None
 
         self.controller: ChessGUIController
         self.input_adapter: LocalMouseInputAdapter
@@ -255,6 +257,7 @@ class ChessGUIApp:
                 self.render_current_position()
 
                 last_result = self.session.start()
+                self._apply_concession_post_game_if_needed()
 
                 if self.quit_requested:
                     break
@@ -359,6 +362,10 @@ class ChessGUIApp:
         if input_result.ui_action == "rematch":
             return "rematch"
 
+        if input_result.ui_action == "concede":
+            self.request_concede()
+            return "concede"
+
         if input_result.ui_action == "close_post_game":
             self.post_game_overlay_visible = False
             return "close_post_game"
@@ -416,6 +423,20 @@ class ChessGUIApp:
             bool
         """
         return self.quit_requested
+
+    def should_concede(self) -> bool:
+        return self.concede_requested
+
+    def request_concede(self) -> None:
+        if self.app_mode != AppMode.PLAYING:
+            return
+
+        self.concede_requested = True
+        self.conceding_color = (
+            self.current_board.turn
+            if self.current_board is not None
+            else self.config.players.human_color
+        )
 
     # ------------------------------------------------------------------
     # GameSession integration
@@ -476,6 +497,8 @@ class ChessGUIApp:
     def start_new_game(self) -> None:
         self.app_mode = AppMode.PLAYING
         self.post_game_overlay_visible = True
+        self.concede_requested = False
+        self.conceding_color = None
         self.controller = ChessGUIController()
         self.current_board = chess.Board()
         self.last_move = None
@@ -489,6 +512,7 @@ class ChessGUIApp:
             controller=self.controller,
             gui_pump=self.pump_once,
             should_quit=self.should_quit,
+            should_concede=self.should_concede,
         )
 
         self.white = (
@@ -530,6 +554,20 @@ class ChessGUIApp:
             view_model_builder=self.view_model_builder,
             pgn_out=self.pgn_out,
             initial_board=self.current_board,
+            white_display_name=self.white_display_name,
+            black_display_name=self.black_display_name,
+        )
+
+    def _apply_concession_post_game_if_needed(self) -> None:
+        if (
+            not self.concede_requested
+            or self.conceding_color is None
+            or self.session is None
+        ):
+            return
+
+        self.session.apply_concession(
+            conceding_color=self.conceding_color,
             white_display_name=self.white_display_name,
             black_display_name=self.black_display_name,
         )

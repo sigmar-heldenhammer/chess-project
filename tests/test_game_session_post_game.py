@@ -1,5 +1,7 @@
 import unittest
 
+import chess
+
 from game_session import GameSession
 
 
@@ -62,6 +64,38 @@ class GameSessionPostGameTests(unittest.TestCase):
         )
 
         self.assertEqual(post_game.title, "A very very very long ... Won")
+
+    def test_white_concession_awards_win_to_black(self):
+        session = GameSession(
+            white=NamedAgent("HumanGUI"),
+            black=NamedAgent("Engine"),
+        )
+
+        session.apply_concession(
+            conceding_color=chess.WHITE,
+            white_display_name="HumanGUI",
+            black_display_name="Engine",
+        )
+
+        self.assertEqual(session.post_game.result, "0-1")
+        self.assertEqual(session.post_game.title, "Engine Won")
+        self.assertEqual(session.post_game.body, "concession")
+
+    def test_black_concession_awards_win_to_white(self):
+        session = GameSession(
+            white=NamedAgent("HumanGUI"),
+            black=NamedAgent("Engine"),
+        )
+
+        session.apply_concession(
+            conceding_color=chess.BLACK,
+            white_display_name="HumanGUI",
+            black_display_name="Engine",
+        )
+
+        self.assertEqual(session.post_game.result, "1-0")
+        self.assertEqual(session.post_game.title, "HumanGUI Won")
+        self.assertEqual(session.post_game.body, "concession")
 
 
 if __name__ == "__main__":
