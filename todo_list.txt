@@ -55,6 +55,5 @@ associate human-readable names with agents
 
 white outline to taken piece images
 
-change color of buttons/popup, add highlights to give 3d appearance
 
 

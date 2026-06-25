@@ -62,11 +62,14 @@ class RendererColors:
     move_tracker_muted_text: tuple[int, int, int] = (170, 170, 170)
     move_tracker_scrollbar: tuple[int, int, int] = (140, 140, 140)
     post_game_overlay: tuple[int, int, int] = (20, 20, 20)
-    post_game_panel: tuple[int, int, int] = (245, 245, 245)
-    post_game_title: tuple[int, int, int] = (20, 20, 20)
-    post_game_body: tuple[int, int, int] = (60, 60, 60)
-    post_game_button: tuple[int, int, int] = (230, 230, 230)
-    post_game_button_text: tuple[int, int, int] = (20, 20, 20)
+    post_game_panel: tuple[int, int, int] = (40, 40, 40)
+    post_game_title: tuple[int, int, int] = (245, 245, 245)
+    post_game_body: tuple[int, int, int] = (245, 245, 245)
+    post_game_button_top: tuple[int, int, int] = (66, 66, 66)
+    post_game_button_bottom: tuple[int, int, int] = (42, 42, 42)
+    post_game_button_border: tuple[int, int, int] = (82, 82, 82)
+    post_game_button_text: tuple[int, int, int] = (245, 245, 245)
+    post_game_close_text: tuple[int, int, int] = (190, 190, 190)
 
 
 class PieceImageCache:
@@ -919,23 +922,10 @@ class BoardRenderer:
         assert view_model.post_game is not None
         close_rect = self._post_game_close_rect(panel_rect)
         self.post_game_button_rects["close_post_game"] = [close_rect]
-        pygame.draw.rect(
-            self.surface,
-            self.colors.post_game_button,
-            close_rect,
-            border_radius=8,
-        )
-        pygame.draw.rect(
-            self.surface,
-            self.colors.border,
-            close_rect,
-            width=2,
-            border_radius=8,
-        )
         close_surface = self._post_game_body_font.render(
             "X",
             True,
-            self.colors.post_game_button_text,
+            self.colors.post_game_close_text,
         )
         self.surface.blit(close_surface, close_surface.get_rect(center=close_rect.center))
 
@@ -949,11 +939,12 @@ class BoardRenderer:
             True,
             self.colors.post_game_body,
         )
+        text_block_top = panel_rect.top + max(42, panel_rect.height // 5)
         title_rect = title_surface.get_rect(
-            center=(panel_rect.centerx, panel_rect.top + panel_rect.height // 4)
+            midtop=(panel_rect.centerx, text_block_top)
         )
         body_rect = body_surface.get_rect(
-            center=(panel_rect.centerx, panel_rect.top + panel_rect.height // 2)
+            midtop=(panel_rect.centerx, title_rect.bottom + 8)
         )
         self.surface.blit(title_surface, title_rect)
         self.surface.blit(body_surface, body_rect)
@@ -983,19 +974,14 @@ class BoardRenderer:
         if action not in labels:
             return
 
-        pygame.draw.rect(
-            self.surface,
-            self.colors.post_game_button,
+        self._draw_rounded_vertical_gradient(
             rect,
+            top_color=self.colors.post_game_button_top,
+            bottom_color=self.colors.post_game_button_bottom,
+            border_color=self.colors.post_game_button_border,
             border_radius=8,
         )
-        pygame.draw.rect(
-            self.surface,
-            self.colors.border,
-            rect,
-            width=2,
-            border_radius=8,
-        )
+
         label_surface = self._post_game_body_font.render(
             labels[action],
             True,
@@ -1003,6 +989,48 @@ class BoardRenderer:
         )
         label_rect = label_surface.get_rect(center=rect.center)
         self.surface.blit(label_surface, label_rect)
+
+    def _draw_rounded_vertical_gradient(
+        self,
+        rect,
+        *,
+        top_color: tuple[int, int, int],
+        bottom_color: tuple[int, int, int],
+        border_color: tuple[int, int, int],
+        border_radius: int,
+    ) -> None:
+        pygame = self._pygame
+
+        if rect.width <= 0 or rect.height <= 0:
+            return
+
+        gradient = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        denominator = max(1, rect.height - 1)
+
+        for y in range(rect.height):
+            t = y / denominator
+            color = tuple(
+                int(top_color[index] + (bottom_color[index] - top_color[index]) * t)
+                for index in range(3)
+            )
+            pygame.draw.line(gradient, (*color, 255), (0, y), (rect.width, y))
+
+        mask = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(
+            mask,
+            (255, 255, 255, 255),
+            mask.get_rect(),
+            border_radius=border_radius,
+        )
+        gradient.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        self.surface.blit(gradient, rect)
+        pygame.draw.rect(
+            self.surface,
+            border_color,
+            rect,
+            width=1,
+            border_radius=border_radius,
+        )
 
     def _remember_post_game_button_rects(self, button_rects: dict[str, object]) -> None:
         for action, rect in button_rects.items():
