@@ -146,6 +146,32 @@ class PlayerPanelView:
             "material_advantage": self.material_advantage,
         }
 
+
+@dataclass(frozen=True)
+class MoveHistoryEntryView:
+    """
+    Renderer-friendly representation of one played move.
+
+    SAN is intended for display. UCI is included as a stable machine-readable
+    identifier for alternate renderers or future interactions.
+    """
+
+    ply: int
+    fullmove_number: int
+    color: str
+    san: str
+    uci: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ply": self.ply,
+            "fullmove_number": self.fullmove_number,
+            "color": self.color,
+            "san": self.san,
+            "uci": self.uci,
+        }
+
+
 @dataclass(frozen=True)
 class BoardViewModel:
     """
@@ -187,6 +213,7 @@ class BoardViewModel:
         )
     )
 
+    move_history: tuple[MoveHistoryEntryView, ...] = field(default_factory=tuple)
     message: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -215,6 +242,7 @@ class BoardViewModel:
             "message": self.message,
             "white_panel": self.white_panel.to_dict(),
             "black_panel": self.black_panel.to_dict(),
+            "move_history": [entry.to_dict() for entry in self.move_history],
             "promotion_request": (
                 None
                 if self.promotion_request is None
@@ -391,6 +419,7 @@ class ViewModelBuilder:
             result=board.result() if board.is_game_over() else None,
             white_panel=white_panel,
             black_panel=black_panel,
+            move_history=self._build_move_history(board),
             message=message if message is not None else ui_message,
         )
 
@@ -453,6 +482,35 @@ class ViewModelBuilder:
 
         return tuple(pieces)
 
+    def _build_move_history(self, board: chess.Board) -> tuple[MoveHistoryEntryView, ...]:
+        move_stack = getattr(board, "move_stack", None)
+
+        if not move_stack:
+            return tuple()
+
+        replay = chess.Board()
+        entries: list[MoveHistoryEntryView] = []
+
+        try:
+            for ply, move in enumerate(move_stack, start=1):
+                if move not in replay.legal_moves:
+                    return tuple()
+
+                entries.append(
+                    MoveHistoryEntryView(
+                        ply=ply,
+                        fullmove_number=replay.fullmove_number,
+                        color="white" if replay.turn == chess.WHITE else "black",
+                        san=replay.san(move),
+                        uci=move.uci(),
+                    )
+                )
+                replay.push(move)
+        except Exception:
+            return tuple()
+
+        return tuple(entries)
+
     def _build_player_panels(
         self,
         *,
@@ -507,6 +565,9 @@ class ViewModelBuilder:
 
         try:
             for move in move_stack:
+                if move not in replay.legal_moves:
+                    return None
+
                 capturing_color = replay.turn
                 captured_piece = self._captured_piece_before_move(replay, move)
 

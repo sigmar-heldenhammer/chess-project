@@ -46,9 +46,11 @@ Assumptions about not-yet-implemented functionality:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from typing import Callable, Optional, Protocol
 
 import chess
+
+from view_model import BoardViewModel
 
 
 class SquareClickController(Protocol):
@@ -84,6 +86,7 @@ class InputResult:
     square_clicked: Optional[chess.Square] = None
     window_resized: bool = False
     window_size: Optional[tuple[int, int]] = None
+    scroll_delta_y: int = 0
 
 @dataclass
 class PromotionMenuGeometry:
@@ -375,13 +378,26 @@ class LocalMouseInputAdapter:
         square_clicked: Optional[chess.Square] = None
         window_resized = False
         window_size = None
+        scroll_delta_y = 0
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 quit_requested = True
                 continue
 
+            if event.type == pygame.MOUSEWHEEL:
+                scroll_delta_y += event.y
+                continue
+
             if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:
+                    scroll_delta_y += 1
+                    continue
+
+                if event.button == 5:
+                    scroll_delta_y -= 1
+                    continue
+
                 promotion_active = False
 
                 if self.get_view_model is not None:
@@ -404,6 +420,7 @@ class LocalMouseInputAdapter:
             square_clicked=square_clicked,
             window_resized=window_resized,
             window_size=window_size,
+            scroll_delta_y=scroll_delta_y,
 
         )
 

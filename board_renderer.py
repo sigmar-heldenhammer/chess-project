@@ -56,6 +56,10 @@ class RendererColors:
     fallback_piece_text: tuple[int, int, int] = (20, 20, 20)
     player_text: tuple[int, int, int] = (235, 235, 235)
     material_advantage: tuple[int, int, int] = (245, 245, 245)
+    move_tracker_background: tuple[int, int, int] = (40, 40, 40)
+    move_tracker_text: tuple[int, int, int] = (235, 235, 235)
+    move_tracker_muted_text: tuple[int, int, int] = (170, 170, 170)
+    move_tracker_scrollbar: tuple[int, int, int] = (140, 140, 140)
 
 
 class PieceImageCache:
@@ -208,11 +212,21 @@ class BoardRenderer:
         self.piece_scale = piece_scale
         self.allow_missing_piece_fallback = allow_missing_piece_fallback
         self.panel_height = panel_height
+        self.move_tracker_gap = 20
+        self.move_tracker_min_side_width = 240
+        self.move_tracker_max_side_width = 340
+        self.move_tracker_min_below_height = 120
+        self.move_tracker_default_below_height = 180
+        self.move_tracker_rect = None
+        self.move_tracker_placement = "right"
+        self.move_tracker_scroll_y = 0
+        self.move_tracker_content_height = 0
 
         self._pygame = self._load_pygame()
         self._coord_font = self._make_coord_font()
         self._player_font = self._make_player_font()
         self._score_font = self._make_score_font()
+        self._move_tracker_font = self._make_move_tracker_font()
         self._fallback_piece_font = self._make_fallback_piece_font()
         self.promotion_menu_geometry = promotion_menu_geometry
 
@@ -244,6 +258,8 @@ class BoardRenderer:
 
         if self.show_coordinates:
             self.draw_coordinates()
+
+        self.draw_move_tracker(view_model)
 
         if self.auto_present:
             self.present()
@@ -356,6 +372,7 @@ class BoardRenderer:
         self._coord_font = self._make_coord_font()
         self._player_font = self._make_player_font()
         self._score_font = self._make_score_font()
+        self._move_tracker_font = self._make_move_tracker_font()
         self._fallback_piece_font = self._make_fallback_piece_font()
 
     def resize_to_window(
@@ -365,18 +382,112 @@ class BoardRenderer:
         margin: int = 20,
     ) -> None:
         available_width = window_width - 2 * margin
-        available_height = window_height - 2 * margin - 2 * self.panel_height
+        available_height = window_height - 2 * margin
 
-        board_size = min(available_width, available_height)
-        self.geometry.square_size = max(1, board_size // 8)
-
-        self.geometry.board_left = (window_width - self.geometry.board_size) // 2
-        self.geometry.board_top = (
-            self.panel_height
-            + margin
-            + max(0, available_height - self.geometry.board_size) // 2
+        layout = self._calculate_window_layout(
+            window_width=window_width,
+            window_height=window_height,
+            available_width=available_width,
+            available_height=available_height,
+            margin=margin,
         )
+
+        self.geometry.square_size = max(1, layout["board_size"] // 8)
+        self.geometry.board_left = layout["board_left"]
+        self.geometry.board_top = layout["board_top"]
+        self.move_tracker_rect = layout["move_tracker_rect"]
+        self.move_tracker_placement = layout["move_tracker_placement"]
+        self._clamp_move_tracker_scroll()
         self.refresh_after_geometry_change()
+
+    def _calculate_window_layout(
+        self,
+        *,
+        window_width: int,
+        window_height: int,
+        available_width: int,
+        available_height: int,
+        margin: int,
+    ) -> dict[str, object]:
+        pygame = self._pygame
+        side_width = min(
+            self.move_tracker_max_side_width,
+            max(self.move_tracker_min_side_width, available_width // 4),
+        )
+        side_board_space = available_width - side_width - self.move_tracker_gap
+        side_stack_height_space = available_height
+        side_board_size = min(
+            side_board_space,
+            side_stack_height_space - 2 * self.panel_height,
+        )
+        use_right_tracker = (
+            side_width >= self.move_tracker_min_side_width
+            and side_board_size >= self.move_tracker_min_side_width
+        )
+
+        if use_right_tracker:
+            board_size = max(1, int(side_board_size))
+            board_size -= board_size % 8
+            board_size = max(8, board_size)
+            stack_width = board_size + self.move_tracker_gap + side_width
+            stack_height = board_size + 2 * self.panel_height
+            stack_left = margin + max(0, available_width - stack_width) // 2
+            stack_top = margin + max(0, available_height - stack_height) // 2
+            board_left = stack_left
+            board_top = stack_top + self.panel_height
+            move_tracker_rect = pygame.Rect(
+                board_left + board_size + self.move_tracker_gap,
+                stack_top,
+                side_width,
+                stack_height,
+            )
+
+            return {
+                "board_size": board_size,
+                "board_left": board_left,
+                "board_top": board_top,
+                "move_tracker_rect": move_tracker_rect,
+                "move_tracker_placement": "right",
+            }
+
+        below_height = min(
+            self.move_tracker_default_below_height,
+            max(self.move_tracker_min_below_height, available_height // 5),
+        )
+        below_board_height_space = (
+            available_height
+            - 2 * self.panel_height
+            - self.move_tracker_gap
+            - below_height
+        )
+        board_size = min(available_width, below_board_height_space)
+        board_size = max(1, int(board_size))
+        board_size -= board_size % 8
+        board_size = max(8, board_size)
+
+        stack_height = (
+            board_size
+            + 2 * self.panel_height
+            + self.move_tracker_gap
+            + below_height
+        )
+        stack_top = margin + max(0, available_height - stack_height) // 2
+        board_left = (window_width - board_size) // 2
+        board_top = stack_top + self.panel_height
+        move_tracker_rect = pygame.Rect(
+            board_left,
+            board_top + board_size + self.panel_height + self.move_tracker_gap,
+            board_size,
+            below_height,
+        )
+
+        return {
+            "board_size": board_size,
+            "board_left": board_left,
+            "board_top": board_top,
+            "move_tracker_rect": move_tracker_rect,
+            "move_tracker_placement": "below",
+        }
 
     def draw_player_panels(self, view_model: BoardViewModel) -> None:
         top_panel = (
@@ -592,6 +703,153 @@ class BoardRenderer:
 
         return groups
 
+    def draw_move_tracker(self, view_model: BoardViewModel) -> None:
+        if self.move_tracker_rect is None or self.move_tracker_rect.height <= 0:
+            return
+
+        pygame = self._pygame
+        rect = self.move_tracker_rect
+        padding = 10
+        row_gap = 4
+        row_height = self._move_tracker_font.get_height() + row_gap
+        rows = self._move_history_rows(view_model)
+        content_height = max(0, len(rows) * row_height - row_gap)
+        viewport_height = max(0, rect.height - 2 * padding)
+        self.move_tracker_content_height = content_height
+        self._clamp_move_tracker_scroll()
+
+        pygame.draw.rect(self.surface, self.colors.move_tracker_background, rect)
+        pygame.draw.rect(self.surface, self.colors.border, rect, width=2)
+
+        if not rows or viewport_height <= 0:
+            return
+
+        clip_rect = pygame.Rect(
+            rect.left + padding,
+            rect.top + padding,
+            max(0, rect.width - 2 * padding - self._move_tracker_scrollbar_space()),
+            viewport_height,
+        )
+        if clip_rect.width <= 0:
+            return
+
+        old_clip = self.surface.get_clip()
+        self.surface.set_clip(clip_rect)
+
+        y = clip_rect.top - self.move_tracker_scroll_y
+        number_width = self._move_tracker_font.size("99.")[0] + 8
+        white_x = clip_rect.left + number_width
+        black_x = white_x + max(56, (clip_rect.width - number_width) // 2)
+
+        for fullmove_number, white_san, black_san in rows:
+            if y + row_height >= clip_rect.top and y <= clip_rect.bottom:
+                number_surface = self._move_tracker_font.render(
+                    f"{fullmove_number}.",
+                    True,
+                    self.colors.move_tracker_muted_text,
+                )
+                self.surface.blit(number_surface, (clip_rect.left, y))
+
+                if white_san is not None:
+                    white_surface = self._move_tracker_font.render(
+                        white_san,
+                        True,
+                        self.colors.move_tracker_text,
+                    )
+                    self.surface.blit(white_surface, (white_x, y))
+
+                if black_san is not None:
+                    black_surface = self._move_tracker_font.render(
+                        black_san,
+                        True,
+                        self.colors.move_tracker_text,
+                    )
+                    self.surface.blit(black_surface, (black_x, y))
+
+            y += row_height
+
+        self.surface.set_clip(old_clip)
+        self._draw_move_tracker_scrollbar(rect, content_height, viewport_height, padding)
+
+    def _move_history_rows(
+        self,
+        view_model: BoardViewModel,
+    ) -> list[tuple[int, Optional[str], Optional[str]]]:
+        rows_by_number: dict[int, list[Optional[str]]] = {}
+
+        for entry in view_model.move_history:
+            row = rows_by_number.setdefault(entry.fullmove_number, [None, None])
+            if entry.color == "white":
+                row[0] = entry.san
+            else:
+                row[1] = entry.san
+
+        return [
+            (fullmove_number, row[0], row[1])
+            for fullmove_number, row in sorted(rows_by_number.items())
+        ]
+
+    def _draw_move_tracker_scrollbar(
+        self,
+        rect,
+        content_height: int,
+        viewport_height: int,
+        padding: int,
+    ) -> None:
+        if content_height <= viewport_height or viewport_height <= 0:
+            return
+
+        pygame = self._pygame
+        track_width = 6
+        track_rect = pygame.Rect(
+            rect.right - padding - track_width,
+            rect.top + padding,
+            track_width,
+            viewport_height,
+        )
+        thumb_height = max(18, int(viewport_height * viewport_height / content_height))
+        max_scroll = max(1, content_height - viewport_height)
+        thumb_travel = max(0, viewport_height - thumb_height)
+        thumb_y = track_rect.top + int(
+            thumb_travel * self.move_tracker_scroll_y / max_scroll
+        )
+        thumb_rect = pygame.Rect(
+            track_rect.left,
+            thumb_y,
+            track_width,
+            thumb_height,
+        )
+
+        pygame.draw.rect(self.surface, self.colors.border, track_rect)
+        pygame.draw.rect(self.surface, self.colors.move_tracker_scrollbar, thumb_rect)
+
+    def _move_tracker_scrollbar_space(self) -> int:
+        return 14
+
+    def handle_move_tracker_scroll(
+        self,
+        scroll_delta_y: int,
+        mouse_pos: tuple[int, int],
+    ) -> None:
+        if self.move_tracker_rect is None:
+            return
+
+        if not self.move_tracker_rect.collidepoint(mouse_pos):
+            return
+
+        row_height = self._move_tracker_font.get_height() + 4
+        self.move_tracker_scroll_y -= scroll_delta_y * row_height * 3
+        self._clamp_move_tracker_scroll()
+
+    def _clamp_move_tracker_scroll(self) -> None:
+        if self.move_tracker_rect is None:
+            self.move_tracker_scroll_y = 0
+            return
+
+        viewport_height = max(0, self.move_tracker_rect.height - 20)
+        max_scroll = max(0, self.move_tracker_content_height - viewport_height)
+        self.move_tracker_scroll_y = max(0, min(self.move_tracker_scroll_y, max_scroll))
+
     def draw_last_move(self, view_model: BoardViewModel) -> None:
         if view_model.last_move_from is not None:
             self._fill_square_by_name(view_model.last_move_from, self.colors.last_move)
@@ -794,6 +1052,10 @@ class BoardRenderer:
         pygame = self._pygame
         return pygame.font.SysFont(None, max(20, self.geometry.square_size // 3), bold=True)
 
+    def _make_move_tracker_font(self):
+        pygame = self._pygame
+        return pygame.font.SysFont(None, max(16, self.geometry.square_size // 4))
+
     def _make_fallback_piece_font(self):
         pygame = self._pygame
         return pygame.font.SysFont(None, int(self.geometry.square_size * 0.65))
@@ -859,7 +1121,9 @@ def create_pygame_board_window(
         white_at_bottom=white_at_bottom,
     )
 
-    width = board_left * 2 + geometry.board_size
+    move_tracker_gap = 20
+    move_tracker_width = 280
+    width = board_left * 2 + geometry.board_size + move_tracker_gap + move_tracker_width
     height = board_top * 2 + geometry.board_size + panel_height * 2
 
     surface = pygame.display.set_mode((width, height), pygame.RESIZABLE)
@@ -872,5 +1136,6 @@ def create_pygame_board_window(
         image_dir=image_dir,
         panel_height=panel_height,
     )
+    renderer.resize_to_window(width, height)
 
     return surface, geometry, renderer

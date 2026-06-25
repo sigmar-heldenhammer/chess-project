@@ -3,10 +3,10 @@
 [Date "????.??.??"]
 [Round "?"]
 [White "HumanGUI"]
-[Black "<template_agent.core.ModularMinimaxAgent object at 0x0000017B0CE8BA10>"]
+[Black "<template_agent.core.ModularMinimaxAgent object at 0x000001A8A19BFA10>"]
 [Result "1-0"]
 [TimeControl "-"]
 [Termination "checkmate"]
 
-1. g3 f6 2. Bh3 e5 3. Nf3 c6 4. O-O Bc5 5. d4 exd4 6. Nxd4 Bxd4 7. Qxd4 a6 8. Nc3 g5 9. Rd1 Nh6 10. Qe3+ Kf7 11. b3 Rf8 12. Ba3 Rh8 13. Ne4 b5 14. Nd6+ Kg6 15. Qd3+ Nf5 16. Qxf5+ Kg7 17. Bb2 Ra7 18. Nxc8 Qxc8 19. Qxf6+ Kg8 20. Qxh8+ Kf7 21. Qxc8 h6 22. Qxb8 d5 23. Qxa7+ Kg8 24. Qg7# 1-0
+1. g3 f6 2. Bg2 d6 3. Nf3 a6 4. O-O g6 5. d3 f5 6. c3 c5 7. Be3 e5 8. c4 Nf6 9. Nc3 Be6 10. Ng5 Bd7 11. Bxb7 Ra7 12. Bg2 Qc7 13. Nd5 Nxd5 14. cxd5 Qa5 15. Qd2 Qxd2 16. Bxd2 Bc8 17. Ne6 Bxe6 18. dxe6 Rg7 19. f4 exf4 20. gxf4 Ke7 21. Bd5 Rf7 22. exf7 Kf6 23. Bc3+ Ke7 24. Bxh8 h5 25. e4 fxe4 26. dxe4 Kd7 27. e5 dxe5 28. fxe5 Ke7 29. e6 Kd6 30. Bc4 a5 31. Rae1 Kc6 32. e7 Bxe7 33. Rxe7 Na6 34. f8=Q Nb4 35. Qe8+ Kd6 36. Qd7# 1-0
 

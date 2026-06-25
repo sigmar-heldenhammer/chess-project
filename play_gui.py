@@ -330,6 +330,12 @@ class ChessGUIApp:
             self.renderer.resize_to_window(width, height)
             self.promotion_menu_geometry.option_size = self.geometry.square_size
 
+        if input_result.scroll_delta_y != 0:
+            self.renderer.handle_move_tracker_scroll(
+                input_result.scroll_delta_y,
+                self._pygame.mouse.get_pos(),
+            )
+
         if input_result.quit_requested:
             self.quit_requested = True
             return
